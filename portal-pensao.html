@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal Gestores — Pensão Flow</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue:        #2B3A8F;
+    --blue-mid:    #3B4FAD;
+    --blue-lt:     #E8ECFA;
+    --white:       #FFFFFF;
+    --gray-1:      #F8F9FC;
+    --gray-3:      #D8DCF0;
+    --text:        #1A1F3C;
+    --muted:       #6B7494;
+    --border:      rgba(43,58,143,0.10);
+    --shadow-h:    0 8px 32px rgba(43,58,143,0.15);
+    --red:         #DC2626;
+    --red-lt:      #FEF2F2;
+    --red-border:  rgba(220,38,38,0.18);
+    --amber:       #B45309;
+    --amber-lt:    #FFFBEB;
+    --amber-border:rgba(180,83,9,0.18);
+    --green:       #15803D;
+    --green-lt:    #F0FDF4;
+    --green-border:rgba(21,128,61,0.18);
+  }
+
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--gray-1);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 68px; position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo img { height: 36px; width: auto; display: block; }
+  .logo-divider { width: 1px; height: 22px; background: var(--gray-3); }
+  .logo-sub { font-size: 13px; font-weight: 500; color: var(--blue); letter-spacing: 0.2px; }
+
+  .header-badge {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 500; color: var(--blue); letter-spacing: 0.3px;
+  }
+  .header-badge::before {
+    content: ''; width: 7px; height: 7px; border-radius: 50%;
+    background: #22C55E; box-shadow: 0 0 0 2px rgba(34,197,94,0.25);
+    animation: blink 2s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* ── LAYOUT ── */
+  main { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .label {
+    font-size: 10px; font-weight: 600; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--blue-mid);
+    margin-bottom: 14px; opacity: 0.7;
+  }
+  .section { margin-bottom: 40px; }
+  .grid    { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .grid-2  { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+  /* ── NAV CARDS ── */
+  .card {
+    background: var(--white); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; display: flex; align-items: center; gap: 14px;
+    text-decoration: none; color: var(--text);
+    transition: box-shadow .18s, border-color .18s, transform .18s;
+    animation: fadeUp .3s both;
+  }
+  .card:hover { box-shadow: var(--shadow-h); border-color: rgba(43,58,143,0.22); transform: translateY(-2px); }
+  .card-icon {
+    width: 40px; height: 40px; border-radius: 10px; background: var(--blue-lt);
+    display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .card-body  { flex: 1; min-width: 0; }
+  .card-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; font-weight: 300; }
+  .card-arrow { font-size: 14px; color: var(--gray-3); transition: color .15s, transform .15s; }
+  .card:hover .card-arrow { color: var(--blue-mid); transform: translateX(3px); }
+
+  .divider { height: 1px; background: var(--border); margin: 40px 0; }
+
+  footer {
+    text-align: center; color: var(--muted); font-size: 11px;
+    margin-top: 48px; font-weight: 300; letter-spacing: 0.3px;
+  }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(10px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .grid .card:nth-child(2) { animation-delay:.05s; }
+  .grid .card:nth-child(3) { animation-delay:.10s; }
+  .grid .card:nth-child(4) { animation-delay:.15s; }
+
+  /* ── ATRASOS ── */
+  .atrasos-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+  }
+  .atrasos-header .label { margin-bottom: 0; }
+
+  .sync-info { font-size: 11px; color: var(--muted); font-weight: 300; display: flex; align-items: center; gap: 6px; }
+  .sync-dot  { width: 6px; height: 6px; border-radius: 50%; background: var(--gray-3); transition: background .3s; }
+  .sync-dot.ok      { background: #22C55E; }
+  .sync-dot.erro    { background: var(--red); }
+  .sync-dot.loading { background: var(--amber); animation: blink 1s infinite; }
+
+  /* ── MÉTRICAS ── */
+  .metrics-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px; margin-bottom: 16px;
+  }
+  .metric-card {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px; animation: fadeUp .3s both;
+  }
+  .metric-label { font-size: 11px; color: var(--muted); font-weight: 400; margin-bottom: 6px; }
+  .metric-value { font-size: 22px; font-weight: 500; color: var(--text); letter-spacing: -0.5px; }
+  .metric-value.red   { color: var(--red); }
+  .metric-value.amber { color: var(--amber); }
+  .metric-value.blue  { color: var(--blue); }
+  .metric-sub { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 300; }
+
+  /* ── FILTROS ── */
+  .filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filtro-btn {
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--border); background: var(--white); color: var(--muted);
+    cursor: pointer; transition: all .15s; font-family: 'DM Sans', sans-serif;
+  }
+  .filtro-btn:hover         { border-color: var(--blue-mid); color: var(--blue); }
+  .filtro-btn.active        { background: var(--blue);  border-color: var(--blue);  color: #fff; }
+  .filtro-btn.red-active    { background: var(--red);   border-color: var(--red);   color: #fff; }
+  .filtro-btn.amber-active  { background: var(--amber); border-color: var(--amber); color: #fff; }
+  .filtro-btn.green-active  { background: var(--green); border-color: var(--green); color: #fff; }
+
+  /* ── TABELA ── */
+  .table-wrap {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; animation: fadeUp .35s both;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { border-bottom: 1px solid var(--border); }
+  thead th {
+    padding: 11px 16px; text-align: left;
+    font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--muted); white-space: nowrap;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--gray-1); }
+  tbody td { padding: 12px 16px; font-size: 13px; vertical-align: middle; }
+
+  .td-nome  { font-weight: 500; }
+  .td-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .td-valor { font-weight: 500; white-space: nowrap; }
+
+  /* BADGES */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 500; white-space: nowrap;
+  }
+  .badge::before { content:''; width:5px; height:5px; border-radius:50%; }
+  .badge-red   { background:var(--red-lt);   color:var(--red);   border:1px solid var(--red-border); }
+  .badge-red::before   { background:var(--red); }
+  .badge-amber { background:var(--amber-lt); color:var(--amber); border:1px solid var(--amber-border); }
+  .badge-amber::before { background:var(--amber); }
+  .badge-green { background:var(--green-lt); color:var(--green); border:1px solid var(--green-border); }
+  .badge-green::before { background:var(--green); }
+
+  /* BOTÕES DE AÇÃO */
+  .action-btns { display: flex; gap: 6px; }
+  .btn-action {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 10px; border-radius: 7px; font-size: 11px; font-weight: 500;
+    text-decoration: none; cursor: pointer; transition: all .15s;
+    white-space: nowrap; font-family: 'DM Sans', sans-serif;
+    border: 1px solid transparent;
+  }
+  .btn-boleto { background: var(--blue-lt); color: var(--blue); border-color: rgba(43,58,143,0.2); }
+  .btn-boleto:hover { background: var(--blue); color: #fff; }
+  .btn-pix    { background: var(--green-lt); color: var(--green); border-color: var(--green-border); }
+  .btn-pix:hover    { background: var(--green); color: #fff; }
+  .btn-copied { background: var(--green) !important; color: #fff !important; }
+
+  /* ESTADOS */
+  .skeleton {
+    background: linear-gradient(90deg, var(--gray-1) 25%, var(--gray-3) 50%, var(--gray-1) 75%);
+    background-size: 200% 100%; animation: shimmer 1.3s infinite;
+    border-radius: 4px; height: 13px; display: inline-block;
+  }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  .sk-lg { width: 130px; } .sk-md { width: 90px; } .sk-sm { width: 65px; } .sk-xs { width: 45px; } .sk-btn { width: 120px; }
+  .skeleton-row td { padding: 14px 16px; }
+  .empty-row td { text-align: center; padding: 48px; color: var(--muted); font-size: 13px; }
+  .error-row td  { text-align: center; padding: 40px; color: var(--red); font-size: 13px; }
+
+  .btn-reload {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--blue-lt); border: 1px solid rgba(43,58,143,0.2);
+    border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 500;
+    color: var(--blue); cursor: pointer; font-family: 'DM Sans', sans-serif;
+    transition: background .15s; margin-top: 10px;
+  }
+  .btn-reload:hover { background: var(--blue); color: #fff; }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--text); color: #fff;
+    padding: 10px 18px; border-radius: 10px; font-size: 13px;
+    z-index: 9999; transition: transform .25s ease, opacity .25s;
+    opacity: 0; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* RESPONSIVE */
+  @media (max-width: 700px) {
+    header  { padding: 0 16px; }
+    main    { padding: 24px 14px 60px; }
+    .grid   { grid-template-columns: 1fr 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .metrics-grid { grid-template-columns: 1fr 1fr; }
+    thead th:nth-child(3), tbody td:nth-child(3),
+    thead th:nth-child(4), tbody td:nth-child(4) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<header>
+  <div class="logo">
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAjgAAAC0CAYAAACZmFZ8AABGmUlEQVR42u2dd5ycVfWHn3vvO3V7SSGFkISEGjoYWui9FwVRqYIIIgJSBPyBYENFkY6ooIBUQQi9ivTeIQVIr6Rt39l773vvO9s7JWRbds/zcdg4++7MO/ecufd7zz33XOWccwiCIAiCIAwgtDSBIAiCIAiCCBxBEARBEIR+jtcTL+ocZFe+wp8K6KFVMKUwWklP9iOsdfTsyqfK/g+lFEq6XxAEQWjtKborB8c5R2AtWmu0CI5BiluVQHrznR1Ya1EKtJagoCAIgtCaAid0LgHGaJ1jq61vYMHiGpZ+VUV1TZqUb3HOdeueAGid4+IkXCTYkgUMoRCWkJgSAIgaJIJgqCIAiCCJw1malb3AkwWq8kCVwuPyVMM6n7p2z0IYwFCYjYzWLMGJNbJcgCIIgCIIIHEEQBEEQBBE4giAIgiAIgnAJ0AJQyVbGIh0bEwAAAABJRU5ErkJggg==" alt="Flow">
+    <div class="logo-divider"></div>
+    <span class="logo-sub">Pensão</span>
+  </div>
+  <div class="header-badge">Portal Gestores</div>
+</header>
+
+<main>
+
+  <!-- ── ATALHOS ── -->
+  <div class="section">
+    <div class="label">Atalhos</div>
+    <div class="grid grid-2">
+
+      <a href="https://docs.google.com/document/d/1T6fwl2WO0SYq2_liHRrvcLWfyBqW-q4sw__iR4IWYFk/edit?usp=sharing"
+         target="_blank" class="card">
+        <div class="card-icon">📋</div>
+        <div class="card-body">
+          <div class="card-title">Prazos e Procedimentos</div>
+          <div class="card-desc">Documentação operacional</div>
+        </div>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <a href="https://forms.flowimoveis.imb.br/wtrNrbLW" target="_blank" class="card">
+        <div class="card-icon">📝</div>
+        <div class="card-body">
+          <div class="card-title">Solicitar Contrato</div>
+          <div class="card-desc">Abrir nova solicitação</div>
+        </div>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <a href="https://forms.flowimoveis.imb.br/JVs61ZMU" target="_blank" class="card">
+        <div class="card-icon">💸</div>
+        <div class="card-body">
+          <div class="card-title">Solicitar Reembolso</div>
+          <div class="card-desc">Enviar pedido de reembolso</div>
+        </div>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <a href="https://forms.flowimoveis.imb.br/J8CSVIEc" target="_blank" class="card">
+        <div class="card-icon">🔍</div>
+        <div class="card-body">
+          <div class="card-title">Análise de Documento</div>
+          <div class="card-desc">Solicitar análise</div>
+        </div>
+        <span class="card-arrow">→</span>
+      </a>
+
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── ATRASOS ── -->
+  <div class="section">
+
+    <div class="atrasos-header">
+      <div class="label">Atrasos e Inadimplência</div>
+      <div class="sync-info">
+        <div class="sync-dot loading" id="syncDot"></div>
+        <span id="syncText">Carregando...</span>
+      </div>
+    </div>
+
+    <!-- MÉTRICAS -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Total em atraso</div>
+        <div class="metric-value red" id="mValor"><span class="skeleton sk-md">&nbsp;</span></div>
+        <div class="metric-sub" id="mValorSub">&nbsp;</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Boletos em atraso</div>
+        <div class="metric-value red" id="mQtd"><span class="skeleton sk-xs">&nbsp;</span></div>
+        <div class="metric-sub" id="mQtdSub">&nbsp;</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Vencem hoje</div>
+        <div class="metric-value amber" id="mHoje"><span class="skeleton sk-xs">&nbsp;</span></div>
+        <div class="metric-sub" id="mHojeSub">&nbsp;</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Maior atraso</div>
+        <div class="metric-value blue" id="mMaior"><span class="skeleton sk-sm">&nbsp;</span></div>
+        <div class="metric-sub" id="mMaiorSub">&nbsp;</div>
+      </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="filtros">
+      <button class="filtro-btn active"       onclick="setFiltro(this,'TODOS')">Todos</button>
+      <button class="filtro-btn"              onclick="setFiltro(this,'EM ATRASO')">⚠️ Em atraso</button>
+      <button class="filtro-btn"              onclick="setFiltro(this,'VENCE HOJE')">🔔 Vence hoje</button>
+      <button class="filtro-btn"              onclick="setFiltro(this,'A VENCER')">📅 A vencer</button>
+    </div>
+
+    <!-- TABELA -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Locatário</th>
+            <th>Imóvel</th>
+            <th>Proprietário</th>
+            <th>Vencimento</th>
+            <th>Valor</th>
+            <th>Atraso</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr class="skeleton-row"><td><span class="skeleton sk-lg"></span></td><td><span class="skeleton sk-md"></span></td><td><span class="skeleton sk-md"></span></td><td><span class="skeleton sk-sm"></span></td><td><span class="skeleton sk-sm"></span></td><td><span class="skeleton sk-xs"></span></td><td><span class="skeleton sk-sm"></span></td><td><span class="skeleton sk-btn"></span></td></tr>
+          <tr class="skeleton-row"><td><span class="skeleton sk-lg"></span></td><td><span class="skeleton sk-md"></span></td><td><span class="skeleton sk-md"></span></td><td><span class="skeleton sk-sm"></span></td><td><span class="skeleton sk-sm"></span></td><td><span class="skeleton sk-xs"></span></td><td><span class="skeleton sk-sm"></span></td><td><span class="skeleton sk-btn"></span></td></tr>
+          <tr class="skeleton-row"><td><span class="skeleton sk-lg"></span></td><td><span class="skeleton sk-md"></span></td><td><span class="skeleton sk-md"></span></td><td><span class="skeleton sk-sm"></span></td><td><span class="skeleton sk-sm"></span></td><td><span class="skeleton sk-xs"></span></td><td><span class="skeleton sk-sm"></span></td><td><span class="skeleton sk-btn"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="text-align:right">
+      <button class="btn-reload" id="btnReload" onclick="carregar()">
+        <span id="reloadIcon">↻</span> Atualizar
+      </button>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+  <footer>Flow Imóveis · Pensão · Portal interno · Uso exclusivo da equipe de gestão</footer>
+</main>
+
+<script>
+  const API = 'https://primary-production-db27.up.railway.app/webhook/pensao-dashboard?token=FLOW_PENSAO_2026';
+  let todos = [];
+  let filtro = 'TODOS';
+
+  /* ── UTILS ── */
+  const fmtBRL = v => Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const fmtData = iso => {
+    if (!iso) return '—';
+    const [a,m,d] = iso.split('-');
+    return `${d}/${m}/${a}`;
+  };
+  const diasLabel = d => !d || d<=0 ? '—' : d===1 ? '1 dia' : `${d} dias`;
+
+  function badge(status) {
+    if (status==='EM ATRASO')  return '<span class="badge badge-red">Em atraso</span>';
+    if (status==='VENCE HOJE') return '<span class="badge badge-amber">Vence hoje</span>';
+    return '<span class="badge badge-green">A vencer</span>';
+  }
+
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(()=>el.classList.remove('show'), 2500);
+  }
+
+  /* ── FILTRO ── */
+  function setFiltro(el, f) {
+    document.querySelectorAll('.filtro-btn').forEach(b =>
+      b.classList.remove('active','red-active','amber-active','green-active'));
+    filtro = f;
+    const cls = {TODOS:'active','EM ATRASO':'red-active','VENCE HOJE':'amber-active','A VENCER':'green-active'};
+    el.classList.add(cls[f]);
+    renderTabela();
+  }
+
+  /* ── PIX ── */
+  function copiarPix(btn, pix) {
+    navigator.clipboard.writeText(pix).then(() => {
+      btn.classList.add('btn-copied');
+      btn.textContent = '✓ Copiado';
+      toast('PIX copiado!');
+      setTimeout(()=>{ btn.classList.remove('btn-copied'); btn.innerHTML='⚡ PIX'; }, 2200);
+    });
+  }
+
+  /* ── MÉTRICAS ── */
+  function renderMetricas() {
+    const atrasados  = todos.filter(d=>d.status==='EM ATRASO');
+    const hoje       = todos.filter(d=>d.status==='VENCE HOJE');
+    const totalValor = atrasados.reduce((s,d)=>s+Number(d.valor_atualizado||d.valor||0),0);
+    const maiorDia   = atrasados.length ? Math.max(...atrasados.map(d=>Number(d.dias_atraso||0))) : 0;
+
+    document.getElementById('mValor').textContent  = fmtBRL(totalValor);
+    document.getElementById('mValorSub').textContent= `${atrasados.length} boleto${atrasados.length!==1?'s':''}`;
+    document.getElementById('mQtd').textContent    = atrasados.length;
+    document.getElementById('mQtdSub').textContent  = atrasados.length===1?'boleto':'boletos';
+    document.getElementById('mHoje').textContent   = hoje.length;
+    document.getElementById('mHojeSub').textContent = hoje.length===1?'boleto':'boletos';
+    document.getElementById('mMaior').textContent  = maiorDia>0?`${maiorDia}d`:'—';
+    document.getElementById('mMaiorSub').textContent= maiorDia>0?'dias corridos':'';
+  }
+
+  /* ── TABELA ── */
+  function renderTabela() {
+    const tbody = document.getElementById('tbody');
+    const lista = filtro==='TODOS' ? todos : todos.filter(d=>d.status===filtro);
+
+    if (!lista.length) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="8">✅ Nenhum registro para este filtro.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = lista.map(d => {
+      const temBoleto = d.link_boleto && d.link_boleto.length > 5;
+      const temPix    = d.pix_qrcode  && d.pix_qrcode.length  > 5;
+      const pixEscaped = temPix ? d.pix_qrcode.replace(/'/g,"\\'") : '';
+
+      const btnBoleto = temBoleto
+        ? `<a href="${d.link_boleto}" target="_blank" class="btn-action btn-boleto">🧾 Boleto</a>`
+        : `<span class="btn-action btn-boleto" style="opacity:.3;cursor:default">🧾 Boleto</span>`;
+
+      const btnPix = temPix
+        ? `<button class="btn-action btn-pix" onclick="copiarPix(this,'${pixEscaped}')">⚡ PIX</button>`
+        : `<span class="btn-action btn-pix" style="opacity:.3;cursor:default">⚡ PIX</span>`;
+
+      return `<tr>
+        <td>
+          <div class="td-nome">${d.nome_cliente||'—'}</div>
+          ${d.situacao?`<div class="td-sub">${d.situacao}</div>`:''}
+        </td>
+        <td style="color:var(--muted);font-size:12px">${d.imovel||'—'}</td>
+        <td style="color:var(--muted);font-size:12px">${d.proprietario||'—'}</td>
+        <td style="white-space:nowrap;font-size:13px">${fmtData(d.vencimento)}</td>
+        <td class="td-valor">${fmtBRL(d.valor_atualizado||d.valor)}</td>
+        <td style="font-weight:500;color:${Number(d.dias_atraso)>0?'var(--red)':'var(--muted)'}">
+          ${diasLabel(d.dias_atraso)}
+        </td>
+        <td>${badge(d.status)}</td>
+        <td><div class="action-btns">${btnBoleto}${btnPix}</div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ── CARREGAR ── */
+  async function carregar() {
+    const dot  = document.getElementById('syncDot');
+    const txt  = document.getElementById('syncText');
+    const btn  = document.getElementById('btnReload');
+    const ico  = document.getElementById('reloadIcon');
+
+    dot.className = 'sync-dot loading';
+    txt.textContent = 'Atualizando...';
+    ico.classList.add('spin');
+
+    try {
+      const res  = await fetch(API);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+
+      const dados = json.dados || json.data || json;
+      todos = Array.isArray(dados) ? dados : [];
+
+      renderMetricas();
+      renderTabela();
+
+      const hora = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      dot.className   = 'sync-dot ok';
+      txt.textContent = `Atualizado às ${hora}`;
+
+    } catch(e) {
+      console.error(e);
+      dot.className   = 'sync-dot erro';
+      txt.textContent = 'Erro ao carregar';
+
+      document.getElementById('tbody').innerHTML =
+        `<tr class="error-row"><td colspan="8">⚠️ Não foi possível carregar os dados.<br>
+         <small>Verifique se o workflow está ativo e tente novamente.</small></td></tr>`;
+
+      ['mValor','mQtd','mHoje','mMaior'].forEach(id =>
+        document.getElementById(id).textContent = '—');
+    } finally {
+      ico.classList.remove('spin');
+    }
+  }
+
+  carregar();
+  setInterval(carregar, 5 * 60 * 1000); // auto-refresh a cada 5min
+</script>
+
+</body>
+</html>
