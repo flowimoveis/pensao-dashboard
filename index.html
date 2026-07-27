@@ -225,6 +225,25 @@
   .btn-limpar:hover { text-decoration: underline; }
   .btn-limpar.show { display: block; }
 
+  /* DETALHE DA SOLICITAÇÃO */
+  #rbTabela tbody tr[data-id] { cursor: pointer; }
+  .modal-det { max-width: 460px; }
+  .rb-det-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin: 16px 0; }
+  .rb-det-item.full { grid-column: 1 / -1; }
+  .rb-det-label { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 3px; }
+  .rb-det-val { font-size: 13px; font-weight: 500; color: var(--text); word-break: break-word; }
+  .rb-det-val.grande { font-size: 17px; }
+  .rb-det-val.desc { font-weight: 300; line-height: 1.5; white-space: pre-wrap; }
+  .rb-pix-linha { display: flex; align-items: center; gap: 8px; }
+  .rb-pix-linha .rb-det-val { flex: 1; font-family: ui-monospace, 'Courier New', monospace; font-size: 12.5px; }
+  .btn-copiar { flex-shrink: 0; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500;
+    background: var(--blue-lt); color: var(--blue); border: 1px solid rgba(43,58,143,0.2);
+    cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-copiar:hover { background: var(--blue); color: #fff; }
+  .btn-copiar.ok { background: var(--green); border-color: var(--green); color: #fff; }
+  .rb-det-sep { height: 1px; background: var(--border); margin: 4px 0 0; }
+
   @media (max-width: 640px) {
     header  { padding: 0 16px; }
     .logo-sub { display: none; }
@@ -255,6 +274,18 @@
       <button class="btn-modal btn-ok" id="rbBtnSalvar" onclick="rbSalvar()">Salvar</button>
     </div>
     <button class="btn-limpar" id="rbBtnLimpar" onclick="rbSalvar(true)">Desmarcar pagamento</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="rbModalDet" onclick="if(event.target===this)rbFecharDet()">
+  <div class="modal modal-det">
+    <div class="modal-title" id="rbDetNome">—</div>
+    <div class="modal-sub" id="rbDetSub"></div>
+    <div class="rb-det-grid" id="rbDetCampos"></div>
+    <div class="modal-btns">
+      <button class="btn-modal btn-cancel" onclick="rbFecharDet()">Fechar</button>
+      <button class="btn-modal btn-ok" id="rbDetAcao">Marcar pago</button>
+    </div>
   </div>
 </div>
 
@@ -736,11 +767,61 @@
     ? '<span class="badge badge-green">Pago</span>'
     : '<span class="badge badge-amber">A pagar</span>';
 
+  // stopPropagation: a linha inteira abre o detalhe, o botão não pode disparar os dois
   function rbBotoes(r) {
+    const on = 'onclick="event.stopPropagation();rbAbrir(\'' + r.id + '\')"';
     return r.pago_em
-      ? '<button class="btn-action btn-editar" onclick="rbAbrir(\'' + r.id + '\')">✎ Editar</button>'
-      : '<button class="btn-action btn-pago"   onclick="rbAbrir(\'' + r.id + '\')">✓ Marcar pago</button>';
+      ? '<button class="btn-action btn-editar" ' + on + '>✎ Editar</button>'
+      : '<button class="btn-action btn-pago" '   + on + '>✓ Marcar pago</button>';
   }
+
+  function rbCampo(label, valor, cls, full) {
+    return '<div class="rb-det-item' + (full ? ' full' : '') + '">' +
+      '<div class="rb-det-label">' + label + '</div>' +
+      '<div class="rb-det-val ' + (cls || '') + '">' + (valor || '—') + '</div></div>';
+  }
+
+  function rbCopiar(btn, txt) {
+    navigator.clipboard.writeText(txt).then(() => {
+      btn.classList.add('ok'); btn.textContent = '✓ Copiado';
+      setTimeout(() => { btn.classList.remove('ok'); btn.textContent = 'Copiar'; }, 2000);
+    }).catch(() => toast('Erro ao copiar'));
+  }
+
+  // Detalhe: mostra o formulário como o solicitante preencheu
+  function rbDetalhe(id) {
+    const r = rbTodos.find(x => String(x.id) === String(id));
+    if (!r) return;
+
+    document.getElementById('rbDetNome').textContent = r.nome || '—';
+    document.getElementById('rbDetSub').textContent =
+      'Solicitado em ' + fmtData(r.criado_em) + (r.pago_em ? ' · pago em ' + fmtData(r.pago_em) : ' · aguardando pagamento');
+
+    const pix = (r.chave_pix || '').trim();
+    const pixHtml = pix
+      ? '<div class="rb-pix-linha"><div class="rb-det-val">' + esc(pix) + '</div>' +
+        '<button class="btn-copiar" onclick="rbCopiar(this,\'' +
+          esc(pix).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">Copiar</button></div>'
+      : '<div class="rb-det-val">—</div>';
+
+    document.getElementById('rbDetCampos').innerHTML =
+      rbCampo('Valor', fmtBRL(r.valor), 'grande') +
+      rbCampo('Tipo de despesa', esc(r.tipo_despesa)) +
+      rbCampo('Forma de pagamento', esc(r.forma_pagamento)) +
+      rbCampo('Status', r.pago_em ? rbBadge(r) + ' ' + fmtData(r.pago_em) : rbBadge(r)) +
+      '<div class="rb-det-item full"><div class="rb-det-label">Chave PIX</div>' + pixHtml + '</div>' +
+      rbCampo('E-mail do solicitante', esc(r.email), '', true) +
+      rbCampo('Descrição', esc(r.descricao), 'desc', true) +
+      (r.pago_obs ? rbCampo('Observação do pagamento', esc(r.pago_obs), 'desc', true) : '');
+
+    const btn = document.getElementById('rbDetAcao');
+    btn.textContent = r.pago_em ? 'Editar pagamento' : 'Marcar pago';
+    btn.onclick = () => { rbFecharDet(); rbAbrir(r.id); };
+
+    document.getElementById('rbModalDet').classList.add('show');
+  }
+
+  function rbFecharDet() { document.getElementById('rbModalDet').classList.remove('show'); }
 
   // Em "Pagos": agrupa por data de pagamento e soma por tipo de despesa dentro de cada data
   function rbAgrupaPorData(lista) {
@@ -810,7 +891,7 @@
 
   // dentroDeGrupo: nas linhas agrupadas a data do pagamento já está no cabeçalho do grupo
   function rbLinha(r, dentroDeGrupo) {
-    return '<tr>' +
+    return '<tr data-id="' + r.id + '" onclick="rbDetalhe(\'' + r.id + '\')" title="Ver a solicitação completa">' +
       '<td class="td-nome"' + (dentroDeGrupo ? ' style="padding-left:28px"' : '') + '>' + esc(r.nome||'—') +
         (r.descricao ? '<div class="rb-desc" title="' + esc(r.descricao) + '">' + esc(r.descricao) + '</div>' : '') + '</td>' +
       '<td style="color:var(--muted);font-size:12px">' + esc(r.tipo_despesa||'—') + '</td>' +
@@ -823,7 +904,7 @@
   }
 
   function rbCard(r) {
-    return '<div class="mob-card">' +
+    return '<div class="mob-card" style="cursor:pointer" onclick="rbDetalhe(\'' + r.id + '\')">' +
         '<div class="mob-card-top">' +
           '<div><div class="mob-nome">' + esc(r.nome||'—') + '</div>' +
               '<div class="mob-imovel">' + esc(r.tipo_despesa||'—') + '</div></div>' +
@@ -911,7 +992,7 @@
     } finally { ico.classList.remove('spin'); }
   }
 
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') rbFechar(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { rbFechar(); rbFecharDet(); } });
 
   carregar();
   rbCarregar();
