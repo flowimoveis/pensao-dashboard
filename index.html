@@ -182,7 +182,18 @@
   .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
   /* REEMBOLSOS */
-  .rb-desc { font-size: 11px; color: var(--muted); font-weight: 300; margin-top: 3px; max-width: 340px;
+  /* larguras fixas: sem isso a coluna Ações estoura o .table-wrap (overflow:hidden) e o botão fica cortado */
+  #rbTabela { table-layout: fixed; }
+  #rbTabela th, #rbTabela td { padding-left: 12px; padding-right: 12px; }
+  #rbTabela th:nth-child(1), #rbTabela td:nth-child(1) { width: 32%; }
+  #rbTabela th:nth-child(2), #rbTabela td:nth-child(2) { width: 11%; }
+  #rbTabela th:nth-child(3), #rbTabela td:nth-child(3) { width: 11%; }
+  #rbTabela th:nth-child(4), #rbTabela td:nth-child(4) { width: 11%; }
+  #rbTabela th:nth-child(5), #rbTabela td:nth-child(5) { width: 11%; }
+  #rbTabela th:nth-child(6), #rbTabela td:nth-child(6) { width: 10%; }
+  #rbTabela th:nth-child(7), #rbTabela td:nth-child(7) { width: 14%; white-space: nowrap; }
+  #rbTabela .td-nome { overflow: hidden; text-overflow: ellipsis; }
+  .rb-desc { font-size: 11px; color: var(--muted); font-weight: 300; margin-top: 3px; max-width: 100%;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .btn-pago  { background: var(--green-lt); color: var(--green); border-color: var(--green-border); }
   .btn-pago:hover  { background: var(--green); color: #fff; }
@@ -399,7 +410,7 @@
     </div>
 
     <div class="table-wrap">
-      <table>
+      <table id="rbTabela">
         <thead>
           <tr>
             <th>Solicitante</th>
@@ -731,6 +742,27 @@
       : '<button class="btn-action btn-pago"   onclick="rbAbrir(\'' + r.id + '\')">✓ Marcar pago</button>';
   }
 
+  // Em "Pagos": agrupa por data de pagamento e soma por tipo de despesa dentro de cada data
+  function rbAgrupaPorData(lista) {
+    const g = {};
+    lista.forEach(r => {
+      const d = extrairData(r.pago_em);
+      const k = d ? d.str : 'sem-data';
+      if (!g[k]) g[k] = { chave: k, itens: [], total: 0, porTipo: {} };
+      const v = Number(r.valor || 0);
+      const t = r.tipo_despesa || 'Sem tipo';
+      g[k].itens.push(r);
+      g[k].total += v;
+      g[k].porTipo[t] = (g[k].porTipo[t] || 0) + v;
+    });
+    return Object.values(g).sort((a, b) => b.chave.localeCompare(a.chave));
+  }
+
+  const rbTiposTxt = porTipo => Object.entries(porTipo)
+    .sort((a, b) => b[1] - a[1])
+    .map(([t, v]) => esc(t) + ' <b>' + fmtBRL(v) + '</b>')
+    .join(' &nbsp;·&nbsp; ');
+
   function rbRender() {
     const lista = rbFiltro === 'TODOS' ? rbTodos
       : rbFiltro === 'PAGO' ? rbTodos.filter(r => r.pago_em)
@@ -746,9 +778,40 @@
       return;
     }
 
-    tbody.innerHTML = lista.map(r =>
-      '<tr>' +
-      '<td class="td-nome">' + esc(r.nome||'—') +
+    if (rbFiltro === 'PAGO') {
+      const grupos = rbAgrupaPorData(lista);
+
+      tbody.innerHTML = grupos.map(g =>
+        '<tr class="group-header"><td colspan="7">💰 Pago em ' + fmtData(g.chave) +
+          ' <span style="font-weight:400;color:var(--muted)">· ' + g.itens.length +
+          ' reembolso' + (g.itens.length !== 1 ? 's' : '') + '</span></td></tr>' +
+        g.itens.map(r => rbLinha(r, true)).join('') +
+        '<tr class="group-total">' +
+          '<td colspan="5" style="font-size:11px;font-weight:400">' + rbTiposTxt(g.porTipo) + '</td>' +
+          '<td colspan="2">' + fmtBRL(g.total) + '</td>' +
+        '</tr>'
+      ).join('');
+
+      cards.innerHTML = grupos.map(g =>
+        '<div class="mob-group-header">💰 Pago em ' + fmtData(g.chave) + '</div>' +
+        g.itens.map(r => rbCard(r)).join('') +
+        '<div class="mob-group-total" style="display:block">' +
+          '<div style="font-size:11px;font-weight:400;margin-bottom:4px">' + rbTiposTxt(g.porTipo) + '</div>' +
+          '<div style="display:flex;justify-content:space-between"><span>Total do dia</span><span>' +
+            fmtBRL(g.total) + '</span></div>' +
+        '</div>'
+      ).join('');
+      return;
+    }
+
+    tbody.innerHTML = lista.map(r => rbLinha(r)).join('');
+    cards.innerHTML = lista.map(r => rbCard(r)).join('');
+  }
+
+  // dentroDeGrupo: nas linhas agrupadas a data do pagamento já está no cabeçalho do grupo
+  function rbLinha(r, dentroDeGrupo) {
+    return '<tr>' +
+      '<td class="td-nome"' + (dentroDeGrupo ? ' style="padding-left:28px"' : '') + '>' + esc(r.nome||'—') +
         (r.descricao ? '<div class="rb-desc" title="' + esc(r.descricao) + '">' + esc(r.descricao) + '</div>' : '') + '</td>' +
       '<td style="color:var(--muted);font-size:12px">' + esc(r.tipo_despesa||'—') + '</td>' +
       '<td class="td-valor">' + fmtBRL(r.valor) + '</td>' +
@@ -756,11 +819,11 @@
       '<td style="white-space:nowrap;font-size:13px;color:' + (r.pago_em?'var(--green)':'var(--muted)') + '">' + fmtData(r.pago_em) + '</td>' +
       '<td>' + rbBadge(r) + '</td>' +
       '<td><div class="action-btns">' + rbBotoes(r) + '</div></td>' +
-      '</tr>'
-    ).join('');
+      '</tr>';
+  }
 
-    cards.innerHTML = lista.map(r =>
-      '<div class="mob-card">' +
+  function rbCard(r) {
+    return '<div class="mob-card">' +
         '<div class="mob-card-top">' +
           '<div><div class="mob-nome">' + esc(r.nome||'—') + '</div>' +
               '<div class="mob-imovel">' + esc(r.tipo_despesa||'—') + '</div></div>' +
@@ -773,8 +836,7 @@
           '<div><div class="mob-field-label">Forma</div><div class="mob-field-value muted">' + esc(r.forma_pagamento||'—') + '</div></div>' +
         '</div>' +
         '<div class="mob-btns">' + rbBotoes(r) + '</div>' +
-      '</div>'
-    ).join('');
+      '</div>';
   }
 
   function rbAbrir(id) {
