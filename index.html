@@ -826,8 +826,7 @@
       telCampo('CPF', d.cpf_locatario)+
       telCampo('E-mail', d.email_locatario || d.email)+
       telCampo('Imóvel', d.imovel)+
-      // Aluguel fica de fora: pensao_contratos.valor_aluguel está 100x maior
-      // (o toNumber do normalizador come o ponto decimal de '750.00'). Não exibir número errado.
+      telCampo('Aluguel', d.valor_aluguel ? fmtBRL(d.valor_aluguel) : '—')+
       telCampo('Vencimento', d.dia_vencimento ? 'dia '+d.dia_vencimento : '—')+
       telCampo('Proprietário', d.proprietario);
 
