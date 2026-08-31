@@ -631,11 +631,21 @@
   }
 
   function botoesHTML(d) {
-    const temBoleto = d.link_boleto && d.link_boleto.length > 5;
+    // link_boleto e' o que a API da Superlogica devolve (link_2via) e NAO e' o boleto:
+    // e' a FATURA em HTML, onde o codigo de barras so' aparece depois de clicar "Pagar".
+    // link_boleto_pdf e' o boleto de verdade — PDF com QR do PIX, linha digitavel e
+    // codigo de barras no corpo. A Superlogica para de emiti-lo 30 dias apos o
+    // vencimento (a view zera o campo nesse caso); ai' o botao cai na fatura, que
+    // ainda paga por PIX.
+    const pdf       = (d.link_boleto_pdf && d.link_boleto_pdf.length > 5) ? d.link_boleto_pdf : '';
+    const fatura    = (d.link_boleto     && d.link_boleto.length     > 5) ? d.link_boleto     : '';
+    const alvo      = pdf || fatura;
+    const dica      = pdf ? 'Boleto em PDF — QR do PIX e código de barras'
+                          : 'Vencido há mais de 30 dias: a Superlógica não emite mais o PDF. Abre a fatura, que ainda paga por PIX.';
     const temPix    = d.pix_qrcode  && d.pix_qrcode.length  > 5;
     const pixEsc    = temPix ? d.pix_qrcode.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
-    const b = temBoleto
-      ? '<a href="'+d.link_boleto+'" target="_blank" class="btn-action btn-boleto">🧾 Boleto</a>'
+    const b = alvo
+      ? '<a href="'+alvo+'" target="_blank" title="'+dica+'" class="btn-action btn-boleto">🧾 Boleto</a>'
       : '<span class="btn-action btn-boleto btn-disabled">🧾 Boleto</span>';
     const p = temPix
       ? '<button class="btn-action btn-pix" onclick="copiarPix(this,\''+pixEsc+'\')">⚡ PIX</button>'
