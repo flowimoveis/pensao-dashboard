@@ -317,7 +317,36 @@
   .pp-salvar { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
   .pp-salvar:disabled { opacity: .5; cursor: default; }
 
+  /* CONTAS DO MÊS E RATEIO */
+  .rt-pill { display: inline-block; font-size: 11px; font-weight: 600; border-radius: 20px; padding: 3px 10px; }
+  .rt-pill.sem { background: var(--gray-1); color: var(--muted); border: 1px solid var(--border); }
+  .rt-pill.rascunho { background: var(--amber-lt); color: var(--amber); border: 1px solid var(--amber-border); }
+  .rt-pill.fechado { background: var(--green-lt); color: var(--green); border: 1px solid var(--green-border); }
+  .rt-conta { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .rt-tipo { min-width: 150px; font-size: 13px; }
+  .rt-tipo small { display: block; color: var(--muted); font-size: 11px; font-weight: 300; }
+  .rt-campo { display: flex; flex-direction: column; gap: 2px; }
+  .rt-campo label { font-size: 9.5px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
+  .rt-campo input { width: 112px; padding: 6px 8px; border: 1px solid var(--gray-3); border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 13px; }
+  .rt-campo input.vazio { border-color: var(--red); background: var(--red-lt); }
+  .rt-campo input.mudou { border-color: var(--amber); background: var(--amber-lt); }
+  .rt-var { font-size: 11px; font-weight: 600; border-radius: 6px; padding: 2px 6px; }
+  .rt-var.alta { background: var(--red-lt); color: var(--red); } .rt-var.ok { color: var(--muted); font-weight: 400; }
+  .rt-tab { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .rt-tab th { text-align: left; font-size: 9.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 8px 12px; font-weight: 600; }
+  .rt-tab td { padding: 7px 12px; border-top: 1px solid var(--border); }
+  .rt-tab td.n, .rt-tab th.n { text-align: right; white-space: nowrap; }
+  .rt-tab tr.sub td { background: var(--gray-1); font-weight: 600; color: var(--blue-mid); font-size: 11px; }
+  .rt-scroll { overflow-x: auto; }
+  .rt-pend { font-size: 12.5px; line-height: 1.5; }
+  .rt-pend b { font-weight: 600; }
+  .rt-bt2 { background: var(--white); color: var(--blue); border: 1px solid rgba(43,58,143,0.25); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+
   @media (max-width: 640px) {
+    .rt-tipo { min-width: 100%; }
+    .rt-campo input { width: 96px; }
+    .rt-tab .lc { display: none; }
+    .rt-tab th, .rt-tab td { padding: 7px 7px; }
     .pp-longo { display: none; }
     .pp-curto { display: inline; }
     .pp-quem { width: 100%; }
@@ -435,7 +464,7 @@
     </div>
     <div class="pp-top">
       <span style="font-size:12px;color:var(--muted)">Boletos de</span>
-      <input type="month" class="pp-mes" id="ppMes" onchange="ppCarregar()">
+      <input type="month" class="pp-mes" id="ppMes" onchange="ppCarregar(); rtCarregar()">
       <button class="btn-reload" style="margin-top:0" onclick="ppUsarSugestao()">↺ Repetir o mês anterior nos vazios</button>
     </div>
     <div class="pp-aviso" id="ppAviso" style="display:none"></div>
@@ -448,6 +477,24 @@
 
   <div class="divider"></div>
 
+  <div class="section" id="rtSecao">
+    <div class="atrasos-header">
+      <div class="label">Contas do mês e rateio</div>
+      <div class="sync-info"><span class="rt-pill sem" id="rtStatus">—</span></div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin:-6px 0 12px">Contas de consumo que entram nos boletos do mês escolhido em "Pessoas por quarto". Juros e multa da conta não são rateados: saem da Reserva.</div>
+    <div class="pp-wrap" id="rtContas"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando...</div></div>
+    <div class="pp-acoes"><button class="pp-salvar" id="rtBtnContas" onclick="rtSalvarContas()">Salvar contas</button></div>
+    <div class="pp-aviso" id="rtPend" style="display:none;margin-top:14px"></div>
+    <div class="pp-wrap rt-scroll" id="rtResumo" style="margin-top:12px;display:none"></div>
+    <div class="pp-wrap rt-scroll" id="rtContratos" style="margin-top:12px;display:none"></div>
+    <div class="pp-acoes">
+      <button class="rt-bt2" id="rtBtnReabrir" style="display:none" onclick="rtReabrir()">Reabrir rateio</button>
+      <button class="pp-salvar" id="rtBtnFechar" onclick="rtFechar()">Fechar rateio do mês</button>
+    </div>
+  </div>
+
+  <div class="divider"></div>
   <div class="section">
     <div class="atrasos-header">
       <div class="label">Atrasos e Inadimplência</div>
@@ -1343,17 +1390,22 @@
     if (!res.ok || !json.ok) throw new Error(json.erro || 'HTTP ' + res.status);
     return json;
   }
+  let ppSeq = 0;
   async function ppCarregar() {
+    const seq = ++ppSeq;
     const mes = document.getElementById('ppMes').value || ppMesPadrao();
     const dot = document.getElementById('ppDot');
     dot.className = 'sync-dot loading';
     document.getElementById('ppSync').textContent = 'Carregando...';
     try {
-      ppDados = await ppChamar('pessoas_listar', { competencia: mes + '-01' });
+      const dados = await ppChamar('pessoas_listar', { competencia: mes + '-01' });
+      if (seq !== ppSeq) return;
+      ppDados = dados;
       ppRender();
       dot.className = 'sync-dot ok';
       document.getElementById('ppSync').textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     } catch (e) {
+      if (seq !== ppSeq) return;
       console.error(e);
       ppDados = null;
       dot.className = 'sync-dot erro';
@@ -1431,6 +1483,7 @@
       if (r.gravados !== itens.length) throw new Error('gravou ' + r.gravados + ' de ' + itens.length);
       toast(r.gravados + (r.gravados === 1 ? ' quarto salvo' : ' quartos salvos'));
       await ppCarregar();
+      rtCarregar();
     } catch (e) {
       console.error(e);
       toast('Não salvou: ' + e.message);
@@ -1439,6 +1492,134 @@
   document.getElementById('ppMes').value = ppMesPadrao();
   try { document.getElementById('ppQuem').value = localStorage.getItem('pensao_quem') || ''; } catch (e) {}
   ppCarregar();
+
+
+  // ── Contas do mês e rateio (Atlas · adm.pensao_portal) ─────────────────────
+  const fmtN = v => v == null ? '' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const parseBR = t => { t = String(t || '').trim(); if (!t) return null; t = t.replace(/\./g, '').replace(',', '.'); const n = Number(t); return isFinite(n) ? n : NaN; };
+  const ROT = { luz: '⚡ Luz', agua: '💧 Água', iptu: '🏛 IPTU' };
+  let rtContas = null, rtRateio = null;
+  function rtComp() { return (document.getElementById('ppMes').value || ppMesPadrao()) + '-01'; }
+  let rtSeq = 0;
+  async function rtCarregar() {
+    const seq = ++rtSeq, comp = rtComp();   // resposta de um pedido anterior (outro mês) é descartada
+    try {
+      const contas = await ppChamar('contas_listar', { competencia: comp });
+      const rateio = await ppChamar(contas.rateio_status === 'fechado' ? 'rateio_ver' : 'rateio_calcular', { competencia: comp });
+      if (seq !== rtSeq) return;
+      rtContas = contas; rtRateio = rateio;
+      rtRender();
+    } catch (e) {
+      if (seq !== rtSeq) return;
+      console.error(e);
+      document.getElementById('rtContas').innerHTML = '<div style="padding:24px;text-align:center;color:var(--red);font-size:13px">⚠️ Não foi possível carregar as contas: ' + esc(e.message) + '</div>';
+    }
+  }
+  function rtRender() {
+    const fechado = rtContas.rateio_status === 'fechado';
+    const st = document.getElementById('rtStatus');
+    st.className = 'rt-pill ' + (fechado ? 'fechado' : rtContas.rateio_status === 'rascunho' ? 'rascunho' : 'sem');
+    st.textContent = fechado ? '✓ Rateio fechado · ' + (rtContas.fechado_por || '') : rtContas.rateio_status === 'rascunho' ? 'Rascunho (não fechado)' : 'Sem rateio';
+    let h = '', g = null;
+    rtContas.itens.forEach(i => {
+      if (i.imovel !== g) { g = i.imovel; h += '<div class="pp-grupo"><span>Pensão ' + esc(g) + '</span><span></span></div>'; }
+      let vr = '';
+      if (i.valor != null && i.anterior) {
+        const pct = (i.valor / i.anterior - 1) * 100;
+        vr = '<span class="rt-var ' + (Math.abs(pct) >= 30 ? 'alta' : 'ok') + '" title="contra o mês anterior">' + (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%</span>';
+      }
+      const dis = fechado ? ' disabled' : '';
+      h += '<div class="rt-conta" data-inst="' + (i.instalacao_id ?? '') + '" data-imovel="' + i.imovel_id + '" data-tipo="' + i.tipo + '">' +
+        '<div class="rt-tipo">' + ROT[i.tipo] + '<small>' + esc(i.identificador || '') + (i.anterior ? ' · anterior ' + fmtN(i.anterior) : '') + '</small></div>' +
+        '<div class="rt-campo"><label>Valor da conta</label><input data-k="valor" inputmode="decimal" class="' + (i.valor == null ? 'vazio' : '') + '" data-orig="' + fmtN(i.valor) + '" value="' + fmtN(i.valor) + '" oninput="rtMudou(this)"' + dis + '></div>' +
+        '<div class="rt-campo"><label>Juros/multa</label><input data-k="juros" inputmode="decimal" data-orig="' + (Number(i.juros_multa) ? fmtN(i.juros_multa) : '') + '" value="' + (Number(i.juros_multa) ? fmtN(i.juros_multa) : '') + '" oninput="rtMudou(this)"' + dis + '></div>' +
+        '<div class="rt-campo"><label>Vencimento</label><input data-k="venc" type="date" data-orig="' + (i.vencimento ? String(i.vencimento).slice(0, 10) : '') + '" value="' + (i.vencimento ? String(i.vencimento).slice(0, 10) : '') + '" oninput="rtMudou(this)"' + dis + '></div>' +
+        vr + '</div>';
+    });
+    document.getElementById('rtContas').innerHTML = h;
+    document.getElementById('rtBtnContas').style.display = fechado ? 'none' : '';
+
+    const p = rtRateio.pendencias, pend = document.getElementById('rtPend');
+    const np = p.pessoas_faltando.length, nc = p.contas_faltando.length;
+    pend.style.display = 'block';
+    if (np || nc) {
+      pend.className = 'pp-aviso falta rt-pend';
+      pend.innerHTML = '⚠️ Para fechar o rateio falta: ' +
+        (nc ? '<b>' + nc + (nc === 1 ? ' conta' : ' contas') + '</b> (' + p.contas_faltando.map(c => esc(c.imovel + ' ' + (ROT[c.tipo] || c.tipo).replace(/^\S+ /, '') + ' ' + (c.identificador || ''))).join(', ') + ')' : '') +
+        (nc && np ? ' e ' : '') + (np ? '<b>' + np + (np === 1 ? ' quarto' : ' quartos') + ' sem número de pessoas</b>' : '') + '.';
+    } else {
+      pend.className = 'pp-aviso ok rt-pend';
+      pend.textContent = fechado ? '✓ Rateio fechado. Os boletos do mês usam estes valores.' : '✓ Tudo preenchido. Confira os valores abaixo e feche o rateio.';
+    }
+    document.getElementById('rtBtnFechar').style.display = fechado ? 'none' : '';
+    document.getElementById('rtBtnFechar').disabled = !!(np || nc);
+    document.getElementById('rtBtnReabrir').style.display = fechado ? '' : 'none';
+
+    const res = document.getElementById('rtResumo');
+    if (rtRateio.resumo.length) {
+      let t = '<table class="rt-tab"><thead><tr><th>Pensão</th><th>Conta</th><th class="n">Conta</th><th class="n lc">Base</th><th class="n">Por unidade</th><th class="n lc">Fica com o fundo</th><th class="n lc">Arredond.</th></tr></thead><tbody>';
+      rtRateio.resumo.forEach(r => {
+        const base = r.tipo === 'iptu' ? r.base + ' cotas' : r.tipo === 'agua' ? Number(r.base).toLocaleString('pt-BR') + ' cabeças' : Number(r.base).toLocaleString('pt-BR') + ' pessoas';
+        t += '<tr><td>' + esc(r.imovel) + '</td><td>' + ROT[r.tipo] + '</td><td class="n">' + fmtN(r.conta) + '</td><td class="n lc">' + base + '</td><td class="n">' + fmtN(r.unitario) +
+             '</td><td class="n lc">' + (Number(r.fundo) ? fmtN(r.fundo) : '—') + '</td><td class="n lc">' + fmtN(r.diferenca) + '</td></tr>';
+      });
+      res.innerHTML = t + '</tbody></table>'; res.style.display = '';
+    } else res.style.display = 'none';
+
+    const ct = document.getElementById('rtContratos');
+    if (rtRateio.contratos.length) {
+      let t = '<table class="rt-tab"><thead><tr><th>Quarto</th><th class="lc">Locatário</th><th class="n lc">Pessoas</th><th class="n">Luz</th><th class="n">Água</th><th class="n">IPTU</th><th class="n">Total</th></tr></thead><tbody>', gg = null;
+      rtRateio.contratos.forEach(c => {
+        if (c.imovel !== gg) { gg = c.imovel; t += '<tr class="sub"><td colspan="7">Pensão ' + esc(gg) + '</td></tr>'; }
+        const q = String(c.codigo).replace(/^Pens[ãa]o\s*\d+\s*-?\s*/i, '').replace(/^Quarto\s*/i, '');
+        const qq = q === 'A' ? 'Loja' : q;
+        t += '<tr><td>' + esc(qq || c.codigo) + '</td><td class="lc">' + esc(c.locatario) + '</td><td class="n lc">' + (c.pessoas ?? '—') + '</td><td class="n">' + fmtN(c.luz) +
+             '</td><td class="n">' + fmtN(c.agua) + '</td><td class="n">' + fmtN(c.iptu) + '</td><td class="n"><b>' + fmtN(c.total) + '</b></td></tr>';
+      });
+      ct.innerHTML = t + '</tbody></table>'; ct.style.display = '';
+    } else ct.style.display = 'none';
+  }
+  function rtMudou(inp) {
+    if (inp.dataset.k === 'valor') inp.classList.toggle('vazio', inp.value.trim() === '');
+    inp.classList.toggle('mudou', inp.value !== inp.dataset.orig);
+  }
+  async function rtSalvarContas() {
+    if (!document.getElementById('ppQuem').value.trim()) { toast('Escreva seu nome (campo ao lado do Salvar das pessoas)'); document.getElementById('ppQuem').focus(); return; }
+    const linhas = [...document.querySelectorAll('#rtContas .rt-conta')].filter(l => [...l.querySelectorAll('input')].some(x => x.value !== x.dataset.orig));
+    if (!linhas.length) { toast('Nada mudou para salvar'); return; }
+    const envios = [];
+    for (const l of linhas) {
+      const v = parseBR(l.querySelector('[data-k=valor]').value), j = parseBR(l.querySelector('[data-k=juros]').value) || 0;
+      if (v == null || isNaN(v) || v <= 0) { toast('Valor inválido em ' + l.querySelector('.rt-tipo').textContent); return; }
+      if (isNaN(j) || j < 0 || j > v) { toast('Juros/multa inválido em ' + l.querySelector('.rt-tipo').textContent); return; }
+      const d = { competencia: rtComp(), valor: v, juros_multa: j, vencimento: l.querySelector('[data-k=venc]').value || '' };
+      if (l.dataset.inst) d.instalacao_id = Number(l.dataset.inst); else { d.tipo = 'iptu'; d.imovel_id = Number(l.dataset.imovel); }
+      envios.push(d);
+    }
+    const btn = document.getElementById('rtBtnContas'); btn.disabled = true; btn.textContent = 'Salvando...';
+    let ok = 0;
+    try {
+      for (const d of envios) { await ppChamar('conta_salvar', d); ok++; }
+      localStorage.setItem('pensao_quem', document.getElementById('ppQuem').value.trim());
+      toast(ok + (ok === 1 ? ' conta salva' : ' contas salvas'));
+    } catch (e) { console.error(e); toast('Salvou ' + ok + ' de ' + envios.length + ': ' + e.message); }
+    finally { btn.disabled = false; btn.textContent = 'Salvar contas'; await rtCarregar(); }
+  }
+  async function rtFechar() {
+    if (!document.getElementById('ppQuem').value.trim()) { toast('Escreva seu nome para ficar registrado'); return; }
+    if (!confirm('Fechar o rateio de ' + ppNomeMes(rtComp().slice(0, 7)) + '? Os boletos do mês vão usar estes valores.')) return;
+    try { await ppChamar('rateio_fechar', { competencia: rtComp() }); toast('Rateio fechado'); }
+    catch (e) { toast('Não fechou: ' + e.message); }
+    await rtCarregar();
+  }
+  async function rtReabrir() {
+    if (!document.getElementById('ppQuem').value.trim()) { toast('Escreva seu nome para ficar registrado'); return; }
+    if (!confirm('Reabrir o rateio? Ele volta a rascunho e precisa ser fechado de novo.')) return;
+    try { await ppChamar('rateio_reabrir', { competencia: rtComp() }); toast('Rateio reaberto'); }
+    catch (e) { toast('Não reabriu: ' + e.message); }
+    await rtCarregar();
+  }
+  rtCarregar();
 
   carregar();
   rbCarregar();
