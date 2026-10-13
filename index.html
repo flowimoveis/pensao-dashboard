@@ -442,9 +442,9 @@
 
 <main>
   <nav class="abas" id="abas" role="tablist">
+    <button class="aba" data-aba="atrasos" onclick="abaIr('atrasos')">⏰ Atrasos</button>
     <button class="aba" data-aba="pessoas" onclick="abaIr('pessoas')">👥 Pessoas <span class="aba-n" id="abaNPessoas"></span></button>
     <button class="aba" data-aba="contas" onclick="abaIr('contas')">⚡ Contas e rateio <span class="aba-n" id="abaNContas"></span></button>
-    <button class="aba" data-aba="atrasos" onclick="abaIr('atrasos')">⏰ Atrasos</button>
     <button class="aba" data-aba="reembolsos" onclick="abaIr('reembolsos')">💸 Reembolsos <span class="aba-n" id="abaNReemb"></span></button>
     <button class="aba" data-aba="atalhos" onclick="abaIr('atalhos')">📋 Atalhos</button>
   </nav>
@@ -1652,13 +1652,12 @@
 
 
   // ── Abas: o portal é o lugar de DIGITAR; cada assunto numa aba ───────────────
-  const ABAS_OK = ['pessoas', 'contas', 'atrasos', 'reembolsos', 'atalhos'];
+  const ABAS_OK = ['atrasos', 'pessoas', 'contas', 'reembolsos', 'atalhos'];
   function abaIr(a, semHash) {
-    if (!ABAS_OK.includes(a)) a = 'pessoas';
+    if (!ABAS_OK.includes(a)) a = 'atrasos';
     document.querySelectorAll('.aba').forEach(b => b.classList.toggle('ativa', b.dataset.aba === a));
     document.querySelectorAll('.aba-sec').forEach(x => x.classList.toggle('ativa', x.dataset.aba === a));
     document.getElementById('barraMes').classList.toggle('show', a === 'pessoas' || a === 'contas');
-    try { localStorage.setItem('pensao_aba', a); } catch (e) {}
     if (!semHash) history.replaceState(null, '', '#' + a);
     window.scrollTo({ top: 0 });
   }
@@ -1668,9 +1667,9 @@
     el.classList.toggle('show', !!n);
   }
   (function () {
-    let ini = (location.hash || '').slice(1);
-    if (!ABAS_OK.includes(ini)) { try { ini = localStorage.getItem('pensao_aba') || ''; } catch (e) { ini = ''; } }
-    abaIr(ini || 'pessoas', true);
+    // abre sempre em Atrasos (Eric 13/10); link com #aba abre direto na aba pedida
+    const ini = (location.hash || '').slice(1);
+    abaIr(ABAS_OK.includes(ini) ? ini : 'atrasos', true);
   })();
 
   carregar();
