@@ -400,6 +400,11 @@
       if (typeof url === 'string' && url.startsWith(PENSAO_HOOK)) {
         const u = new URL(url); u.searchParams.delete('token');
         const idt = idToken();
+        // sem login nem chama o servidor (evita 4 recusas e 4 telas de login empilhadas)
+        if (!idt && !(opt.body instanceof URLSearchParams && opt.body.get('acao') === 'quem_sou' && opt.body.has('id_token'))) {
+          loginMostrar('');
+          return Promise.resolve(new Response('{"ok":false,"erro":"login"}', { status: 401, headers: { 'Content-Type': 'application/json' } }));
+        }
         if (opt.body instanceof URLSearchParams) { opt.body.delete('token'); opt.body.set('id_token', idt); }
         else u.searchParams.set('id_token', idt);
         url = u.toString();
@@ -408,10 +413,13 @@
       return original(url, opt);
     };
   })();
+  let loginIniciado = false;
   function loginMostrar(msg) {
     const box = document.getElementById('loginBox'); if (!box) return;
     box.style.display = 'flex';
-    const m = document.getElementById('loginMsg'); if (m) m.textContent = msg || '';
+    const m = document.getElementById('loginMsg'); if (m && (msg || !m.textContent)) m.textContent = msg || '';
+    if (loginIniciado) return;          // o Google é inicializado UMA vez (várias chamadas se atrapalhavam)
+    loginIniciado = true;
     const go = () => {
       google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: loginOk, auto_select: true, cancel_on_tap_outside: false });
       google.accounts.id.renderButton(document.getElementById('loginBtn'), { theme: 'filled_blue', size: 'large', text: 'signin_with', locale: 'pt-BR' });
@@ -422,7 +430,7 @@
   }
   async function loginOk(resp) {
     try { sessionStorage.setItem('pensao_idt', resp.credential); } catch (e) {}
-    const r = await fetch(PENSAO_HOOK + '-api', { method: 'POST', body: new URLSearchParams({ acao: 'quem_sou', dados: '{}' }) }).then(x => x.json()).catch(() => ({}));
+    const r = await fetch(PENSAO_HOOK + '-api', { method: 'POST', body: new URLSearchParams({ acao: 'quem_sou', dados: '{}', id_token: resp.credential }) }).then(x => x.json()).catch(() => ({}));
     if (!r.ok) {
       try { sessionStorage.removeItem('pensao_idt'); } catch (e) {}
       if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
