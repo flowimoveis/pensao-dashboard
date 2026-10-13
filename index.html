@@ -384,8 +384,79 @@
     .filtro-btn { font-size: 11px; padding: 5px 10px; }
   }
 </style>
+<script>
+  // ── LOGIN PELO GOOGLE (Eric 13/10/2026: "igual ao contas de casa") ─────────────────────────────────────
+  // Só entra quem estiver em adm.pensao_portal_email (eric@flowimoveis.imb.br, rafael.sa.faria@gmail.com…).
+  // Cada chamada aos webhooks da pensão leva o ID token do Google no lugar do token fixo; o n8n confere no Google.
+  // Enquanto GOOGLE_CLIENT_ID estiver vazio, o portal funciona como antes (token antigo) — transição.
+  const GOOGLE_CLIENT_ID = '';
+  const PENSAO_HOOK = 'https://n8n.flowimoveis.imb.br/webhook/pensao';
+  function idToken() { try { return sessionStorage.getItem('pensao_idt') || ''; } catch (e) { return ''; } }
+  (function () {
+    if (!GOOGLE_CLIENT_ID) return;
+    const original = window.fetch.bind(window);
+    window.fetch = function (url, opt) {
+      opt = opt || {};
+      if (typeof url === 'string' && url.startsWith(PENSAO_HOOK)) {
+        const u = new URL(url); u.searchParams.delete('token');
+        const idt = idToken();
+        if (opt.body instanceof URLSearchParams) { opt.body.delete('token'); opt.body.set('id_token', idt); }
+        else u.searchParams.set('id_token', idt);
+        url = u.toString();
+        return original(url, opt).then(r => { if (r.status === 401) { const tinha = !!idt; try { sessionStorage.removeItem('pensao_idt'); } catch (e) {} loginMostrar(tinha ? 'Sua sessão expirou. Entre de novo.' : ''); } return r; });
+      }
+      return original(url, opt);
+    };
+  })();
+  function loginMostrar(msg) {
+    const box = document.getElementById('loginBox'); if (!box) return;
+    box.style.display = 'flex';
+    const m = document.getElementById('loginMsg'); if (m) m.textContent = msg || '';
+    const go = () => {
+      google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: loginOk, auto_select: true, cancel_on_tap_outside: false });
+      google.accounts.id.renderButton(document.getElementById('loginBtn'), { theme: 'filled_blue', size: 'large', text: 'signin_with', locale: 'pt-BR' });
+      google.accounts.id.prompt();
+    };
+    if (window.google && google.accounts) go();
+    else { const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.onload = go; document.head.appendChild(sc); }
+  }
+  async function loginOk(resp) {
+    try { sessionStorage.setItem('pensao_idt', resp.credential); } catch (e) {}
+    const r = await fetch(PENSAO_HOOK + '-api', { method: 'POST', body: new URLSearchParams({ acao: 'quem_sou', dados: '{}' }) }).then(x => x.json()).catch(() => ({}));
+    if (!r.ok) {
+      try { sessionStorage.removeItem('pensao_idt'); } catch (e) {}
+      if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
+      loginMostrar(r.erro === 'nao_autorizado' ? 'Esta conta Google não tem acesso ao portal da pensão. Peça ao Eric para liberar o e-mail.' : 'Não foi possível entrar. Tente de novo.');
+      return;
+    }
+    try { localStorage.setItem('pensao_quem', r.nome); sessionStorage.setItem('pensao_nome', r.nome); } catch (e) {}
+    location.reload();   // recarrega já autenticado: todas as abas buscam os dados com o login
+  }
+  function loginSair() {
+    try { sessionStorage.removeItem('pensao_idt'); sessionStorage.removeItem('pensao_nome'); } catch (e) {}
+    if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
+    location.reload();
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!GOOGLE_CLIENT_ID) return;
+    const nome = (() => { try { return sessionStorage.getItem('pensao_nome') || ''; } catch (e) { return ''; } })();
+    if (!idToken()) { loginMostrar(''); return; }
+    // logado: o nome vem do login (não precisa digitar) e aparece com "Sair"
+    const q = document.getElementById('ppQuem'); if (q && nome) { q.value = nome; q.readOnly = true; }
+    const el = document.getElementById('rtQuemNome'); if (el && nome) el.textContent = nome;
+    const tr = document.querySelector('a[onclick^="trocarQuem"]'); if (tr) { tr.textContent = 'sair'; tr.setAttribute('onclick', 'loginSair();return false'); }
+  });
+</script>
 </head>
 <body>
+<div id="loginBox" style="display:none;position:fixed;inset:0;z-index:9999;background:#F3F4F8;align-items:center;justify-content:center;padding:16px">
+  <div style="background:white;border-radius:16px;padding:32px 28px;max-width:380px;width:100%;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.08)">
+    <div style="font-size:20px;font-weight:800;color:#1A1F3C;margin-bottom:6px">Pensão · Flow</div>
+    <div style="font-size:13.5px;color:#6B7280;margin-bottom:22px">Portal de gestão. Entre com a sua conta Google.</div>
+    <div id="loginBtn" style="display:flex;justify-content:center;min-height:44px"></div>
+    <div id="loginMsg" style="font-size:13px;color:#B91C1C;margin-top:14px"></div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
