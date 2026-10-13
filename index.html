@@ -760,7 +760,7 @@
 </main>
 
 <script>
-  const API = 'https://n8n.flowimoveis.imb.br/webhook/pensao-dashboard?token=FLOW_PENSAO_2026';
+  const API = 'https://n8n.flowimoveis.imb.br/webhook/pensao-dashboard';
   let todos = [];
   let filtro = 'TODOS';
 
@@ -990,7 +990,7 @@
 
   /* ============ TELEFONE DO LOCATÁRIO ============ */
   const TEL_API   = 'https://n8n.flowimoveis.imb.br/webhook/pensao-telefone';
-  const TEL_TOKEN = 'FLOW_PENSAO_2026';
+  const TEL_TOKEN = ''   /* token fixo desligado em 13/10: o acesso é pelo login Google */;
   let telAtual = null;
 
   // esc() é o mesmo helper declarado mais abaixo, na seção de reembolsos.
@@ -1157,7 +1157,7 @@
   }
 
   /* ===================== REEMBOLSOS ===================== */
-  const RB_TOKEN    = 'FLOW_PENSAO_2026';
+  const RB_TOKEN    = ''   /* token fixo desligado em 13/10: o acesso é pelo login Google */;
   const RB_BASE     = 'https://n8n.flowimoveis.imb.br/webhook';
   const RB_API      = RB_BASE + '/pensao-reembolsos?token=' + RB_TOKEN;
   const RB_API_PAGO = RB_BASE + '/pensao-reembolso-pago';
@@ -1487,7 +1487,7 @@
   // ── Pessoas por quarto (Atlas · adm.pensao_portal) ─────────────────────────
   // Sem o número de TODOS os quartos ocupados, o Atlas não gera os boletos do mês.
   const PP_API = 'https://n8n.flowimoveis.imb.br/webhook/pensao-api';
-  const PP_TOKEN = 'FLOW_PENSAO_2026';
+  const PP_TOKEN = ''   /* token fixo desligado em 13/10: o acesso é pelo login Google */;
   let ppDados = null;
 
   function ppMesPadrao() {
