@@ -356,6 +356,13 @@
   .aba-sec { display: none; }
   .aba-sec.ativa { display: block; }
 
+  .rt-up-btn { background: var(--white); border: 1px dashed rgba(43,58,143,0.35); border-radius: 7px; padding: 6px 10px; font-size: 12px; color: var(--blue); cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+  .rt-up-btn:hover { border-style: solid; }
+  .rt-up-msg { flex-basis: 100%; font-size: 12px; margin-top: 2px; }
+  .rt-up-msg.ok { color: var(--green); } .rt-up-msg.erro { color: var(--red); } .rt-up-msg.info { color: var(--amber); }
+  .senha-box { position: fixed; inset: 0; background: rgba(26,31,60,0.45); display: flex; align-items: center; justify-content: center; z-index: 300; padding: 16px; }
+  .senha-card { background: #fff; border-radius: 14px; padding: 22px; width: 100%; max-width: 360px; }
+
   @media (max-width: 640px) {
     .abas { top: 68px; margin-top: -4px; }
     .aba { padding: 9px 10px; font-size: 12px; }
@@ -1557,12 +1564,14 @@
         vr = '<span class="rt-var ' + (Math.abs(pct) >= 30 ? 'alta' : 'ok') + '" title="contra o mês anterior">' + (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%</span>';
       }
       const dis = fechado ? ' disabled' : '';
-      h += '<div class="rt-conta" data-inst="' + (i.instalacao_id ?? '') + '" data-imovel="' + i.imovel_id + '" data-tipo="' + i.tipo + '">' +
+      h += '<div class="rt-conta" data-chave="' + rtChave(i) + '" data-inst="' + (i.instalacao_id ?? '') + '" data-imovel="' + i.imovel_id + '" data-tipo="' + i.tipo + '">' +
         '<div class="rt-tipo">' + ROT[i.tipo] + '<small>' + esc(i.identificador || '') + (i.anterior ? ' · anterior ' + fmtN(i.anterior) : '') + '</small></div>' +
         '<div class="rt-campo"><label>Valor da conta</label><input data-k="valor" inputmode="decimal" class="' + (i.valor == null ? 'vazio' : '') + '" data-orig="' + fmtN(i.valor) + '" value="' + fmtN(i.valor) + '" oninput="rtMudou(this)"' + dis + '></div>' +
         '<div class="rt-campo"><label>Juros/multa</label><input data-k="juros" inputmode="decimal" data-orig="' + (Number(i.juros_multa) ? fmtN(i.juros_multa) : '') + '" value="' + (Number(i.juros_multa) ? fmtN(i.juros_multa) : '') + '" oninput="rtMudou(this)"' + dis + '></div>' +
         '<div class="rt-campo"><label>Vencimento</label><input data-k="venc" type="date" data-orig="' + (i.vencimento ? String(i.vencimento).slice(0, 10) : '') + '" value="' + (i.vencimento ? String(i.vencimento).slice(0, 10) : '') + '" oninput="rtMudou(this)"' + dis + '></div>' +
-        vr + '</div>';
+        vr + (fechado ? '' : '<button class="rt-up-btn" onclick="rtEscolherPdf(this)">📎 Enviar PDF</button>') +
+        '<div class="rt-up-msg ' + ((rtUpMsg[rtChave(i)] || {}).cls || '') + '">' + esc((rtUpMsg[rtChave(i)] || {}).txt || '') + '</div>' +
+        '</div>';
     });
     document.getElementById('rtContas').innerHTML = h;
     document.getElementById('rtBtnContas').style.display = fechado ? 'none' : '';
@@ -1649,6 +1658,116 @@
     await rtCarregar();
   }
   rtCarregar();
+
+  // ── Upload do PDF da conta (Eric 13/10): o leitor preenche valor, vencimento, juros, linha e PIX ───────────
+  // PDF com senha é detectado NA HORA pelo pdf.js; a senha é conferida no navegador antes de subir.
+  const UP_URL = 'https://flowimoveis.imb.br/upload';
+  const UP_FORM_KEY = 'ff_DeurbNCnZbJPALOGwC8u8nBvuhPXEdbVEI7ExqCVEQ4';
+  const rtUpMsg = {};
+  function rtChave(i) { return i.instalacao_id ? 'i' + i.instalacao_id : 'iptu' + i.imovel_id; }
+  function rtMsg(chave, txt, cls) {
+    rtUpMsg[chave] = { txt, cls };
+    const el = document.querySelector('.rt-conta[data-chave="' + chave + '"] .rt-up-msg');
+    if (el) { el.textContent = txt; el.className = 'rt-up-msg ' + cls; }
+  }
+  let pdfjsPronto = null;
+  function carregaPdfjs() {
+    if (pdfjsPronto) return pdfjsPronto;
+    pdfjsPronto = new Promise((ok, falha) => {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; ok(window.pdfjsLib); };
+      sc.onerror = () => { pdfjsPronto = null; falha(new Error('não consegui carregar o leitor de PDF')); };
+      document.head.appendChild(sc);
+    });
+    return pdfjsPronto;
+  }
+  function pedeSenha(msg) {
+    return new Promise(ok => {
+      const box = document.createElement('div');
+      box.className = 'senha-box';
+      box.innerHTML = '<div class="senha-card"><div class="modal-title">🔒 Este PDF tem senha</div><div class="modal-sub">' + esc(msg) +
+        '</div><input type="password" class="modal-input" id="senhaPdf" placeholder="Senha do PDF" autocomplete="off">' +
+        '<div class="modal-btns" style="margin-top:12px"><button class="btn-modal btn-cancel" id="senhaNao">Cancelar</button><button class="btn-modal btn-ok" id="senhaOk">Abrir</button></div></div>';
+      document.body.appendChild(box);
+      const inp = box.querySelector('#senhaPdf'); inp.focus();
+      const fim = v => { box.remove(); ok(v); };
+      box.querySelector('#senhaNao').onclick = () => fim(null);
+      box.querySelector('#senhaOk').onclick = () => fim(inp.value);
+      inp.onkeydown = e => { if (e.key === 'Enter') fim(inp.value); if (e.key === 'Escape') fim(null); };
+    });
+  }
+  // devolve '' (sem senha), a senha que abre o PDF, ou null (cancelou)
+  async function senhaDoPdf(bytes) {
+    const lib = await carregaPdfjs();
+    let senha = '', msg = 'Digite a senha para o Atlas conseguir ler a conta. Ela é apagada depois da leitura.';
+    for (;;) {
+      try {
+        const doc = await lib.getDocument({ data: bytes.slice(0), password: senha || undefined }).promise;
+        await doc.destroy();
+        return senha;
+      } catch (e) {
+        if (e && e.name === 'PasswordException') {
+          if (senha) msg = '❌ Senha errada. Tente de novo.';
+          const v = await pedeSenha(msg);
+          if (v === null) return null;
+          senha = v;
+          continue;
+        }
+        throw new Error('o arquivo não parece um PDF válido');
+      }
+    }
+  }
+  function rtEscolherPdf(btn) {
+    if (!document.getElementById('ppQuem').value.trim()) { toast('Escreva seu nome (na aba Pessoas, ao lado do Salvar)'); return; }
+    const linha = btn.closest('.rt-conta');
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'application/pdf,.pdf';
+    inp.onchange = () => { if (inp.files[0]) rtEnviarPdf(linha, inp.files[0]); };
+    inp.click();
+  }
+  async function rtEnviarPdf(linha, arq) {
+    const chave = linha.dataset.chave;
+    if (!/\.pdf$/i.test(arq.name) && arq.type !== 'application/pdf') { rtMsg(chave, 'Envie o PDF da conta.', 'erro'); return; }
+    if (arq.size > 15 * 1024 * 1024) { rtMsg(chave, 'PDF maior que 15 MB.', 'erro'); return; }
+    try {
+      const bytes = new Uint8Array(await arq.arrayBuffer());
+      rtMsg(chave, 'Abrindo o PDF…', 'info');
+      const senha = await senhaDoPdf(bytes);
+      if (senha === null) { rtMsg(chave, 'Envio cancelado (sem a senha).', 'erro'); return; }
+      rtMsg(chave, 'Enviando…', 'info');
+      const comp = rtComp();
+      const caminho = 'pensao-docs/contas/' + comp.slice(0, 7) + '/' + chave + '-' + Date.now() + '.pdf';
+      const up = await fetch(UP_URL, { method: 'POST', body: arq, headers: { 'Content-Type': 'application/pdf', 'x-form-key': UP_FORM_KEY, 'x-caminho': caminho } });
+      const uj = await up.json().catch(() => ({}));
+      if (!up.ok || !uj.ok) throw new Error(uj.mensagem || uj.erro || ('envio falhou (HTTP ' + up.status + ')'));
+      const dados = { competencia: comp, caminho, nome_arquivo: arq.name, senha };
+      if (linha.dataset.inst) dados.instalacao_id = Number(linha.dataset.inst); else { dados.tipo = 'iptu'; dados.imovel_id = Number(linha.dataset.imovel); }
+      const r = await ppChamar('conta_upload', dados);
+      rtMsg(chave, 'Lendo a conta… (até 1 minuto)', 'info');
+      rtAcompanhar(chave, r.upload_id, 0);
+    } catch (e) { console.error(e); rtMsg(chave, 'Não enviou: ' + e.message, 'erro'); }
+  }
+  const UP_TXT = {
+    precisa_senha: 'O PDF tem senha — envie de novo e digite a senha.', senha_errada: 'Senha errada — envie de novo.',
+    nao_reconhecido: 'Não reconheci esta conta (é Enel, Sabesp ou IPTU?).',
+  };
+  async function rtAcompanhar(chave, id, n) {
+    try {
+      const r = await ppChamar('upload_status', { ids: [id] });
+      const u = (r.itens || [])[0] || {};
+      if (u.status === 'lido') {
+        const x = u.resultado || {};
+        rtMsg(chave, '✓ Lido: ' + fmtN(x.valor) + (x.vencimento ? ' · vence ' + String(x.vencimento).slice(0, 10).split('-').reverse().join('/') : '') +
+          (Number(x.juros_multa) ? ' · juros/multa ' + fmtN(x.juros_multa) + ' (vai para a Reserva)' : '') + (x.tem_pix ? ' · com PIX' : ''), 'ok');
+        await rtCarregar();
+        return;
+      }
+      if (u.status && !['pendente', 'lendo'].includes(u.status)) { rtMsg(chave, UP_TXT[u.status] || u.erro || u.status, 'erro'); return; }
+      if (n > 45) { rtMsg(chave, 'Recebido; a leitura está demorando — atualize daqui a pouco.', 'info'); return; }
+      setTimeout(() => rtAcompanhar(chave, id, n + 1), 4000);
+    } catch (e) { setTimeout(() => rtAcompanhar(chave, id, n + 1), 6000); }
+  }
 
 
   // ── Abas: o portal é o lugar de DIGITAR; cada assunto numa aba ───────────────
