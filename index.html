@@ -450,7 +450,9 @@
     const nome = (() => { try { return sessionStorage.getItem('pensao_nome') || ''; } catch (e) { return ''; } })();
     if (!idToken()) { loginMostrar(''); return; }
     // logado: o nome vem do login (não precisa digitar) e aparece com "Sair"
-    const q = document.getElementById('ppQuem'); if (q && nome) { q.value = nome; q.readOnly = true; }
+    // logado pelo Google: ninguém digita nome (Eric 13/10) — o banco registra o nome da lista de acesso
+    const q = document.getElementById('ppQuem'); if (q && nome) { q.value = nome; q.readOnly = true; q.style.display = 'none'; }
+    const tp = document.getElementById('telPor'); if (tp && nome) { tp.value = nome; tp.style.display = 'none'; const lb = document.querySelector('label[for="telPor"]'); if (lb) lb.style.display = 'none'; }
     const el = document.getElementById('rtQuemNome'); if (el && nome) el.textContent = nome;
     const tr = document.querySelector('a[onclick^="trocarQuem"]'); if (tr) { tr.textContent = 'sair'; tr.setAttribute('onclick', 'loginSair();return false'); }
   });
@@ -1088,7 +1090,7 @@
   async function telSalvar() {
     if (!telAtual) return;
     const bruto = document.getElementById('telInput').value;
-    const por   = document.getElementById('telPor').value.trim();
+    const por   = (() => { try { return sessionStorage.getItem('pensao_nome') || ''; } catch (e) { return ''; } })() || document.getElementById('telPor').value.trim();
     let dig = bruto.replace(/\D/g,'');
     if (dig.length>11 && dig.startsWith('55')) dig = dig.slice(2);
     // Celular antigo (8 dígitos, começando em 6-9) ganha o nono. Fixo (2-5) não vira celular.
@@ -1804,6 +1806,8 @@
   // e o navegador lembra. Fica visível no topo da aba de contas, com "trocar".
   function garanteQuem() {
     const el = document.getElementById('ppQuem');
+    const nomeLogin = (() => { try { return sessionStorage.getItem('pensao_nome') || ''; } catch (e) { return ''; } })();
+    if (typeof GOOGLE_CLIENT_ID !== 'undefined' && GOOGLE_CLIENT_ID && nomeLogin) { el.value = nomeLogin; return true; }
     let v = el.value.trim();
     if (!v) {
       v = (prompt('Seu nome (fica registrado como quem enviou/salvou):') || '').trim();
