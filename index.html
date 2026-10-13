@@ -389,7 +389,7 @@
   // Só entra quem estiver em adm.pensao_portal_email (eric@flowimoveis.imb.br, rafael.sa.faria@gmail.com…).
   // Cada chamada aos webhooks da pensão leva o ID token do Google no lugar do token fixo; o n8n confere no Google.
   // Enquanto GOOGLE_CLIENT_ID estiver vazio, o portal funciona como antes (token antigo) — transição.
-  const GOOGLE_CLIENT_ID = '';
+  const GOOGLE_CLIENT_ID = '143326879297-kmts8pj8cubes2gglr7q4sj91nq9r0br.apps.googleusercontent.com';   // cliente 'contasdecasa' (GCP flow-seo-501612): só confirma o e-mail; quem entra é a lista da pensão
   const PENSAO_HOOK = 'https://n8n.flowimoveis.imb.br/webhook/pensao';
   function idToken() { try { return sessionStorage.getItem('pensao_idt') || ''; } catch (e) { return ''; } }
   (function () {
