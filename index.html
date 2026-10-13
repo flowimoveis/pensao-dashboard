@@ -1238,7 +1238,7 @@
 
     document.getElementById('rbDetNome').textContent = r.nome || '—';
     document.getElementById('rbDetSub').textContent =
-      'Solicitado em ' + fmtData(r.criado_em) + (r.pago_em ? ' · pago em ' + fmtData(r.pago_em) : ' · aguardando pagamento');
+      'Solicitado em ' + fmtData(r.criado_em) + (r.pago_em ? ' · pago em ' + fmtData(r.pago_em) : ' · paga em ' + fmtData(r.paga_previsto) + ' (corte: lançado até dia 14 → dia 15; até dia 24 → dia 25)');
 
     const pix = (r.chave_pix || '').trim();
     const pixHtml = pix
@@ -1251,7 +1251,7 @@
       rbCampo('Valor', fmtBRL(r.valor), 'grande') +
       rbCampo('Tipo de despesa', esc(r.tipo_despesa)) +
       rbCampo('Forma de pagamento', esc(r.forma_pagamento)) +
-      rbCampo('Status', r.pago_em ? rbBadge(r) + ' ' + fmtData(r.pago_em) : rbBadge(r)) +
+      rbCampo('Status', r.pago_em ? rbBadge(r) + ' ' + fmtData(r.pago_em) : rbBadge(r) + (r.paga_previsto ? ' · paga em ' + fmtData(r.paga_previsto) : '')) +
       '<div class="rb-det-item full"><div class="rb-det-label">Chave PIX</div>' + pixHtml + '</div>' +
       rbCampo('E-mail do solicitante', esc(r.email), '', true) +
       rbCampo('Descrição', esc(r.descricao), 'desc', true) +
