@@ -342,7 +342,23 @@
   .rt-pend b { font-weight: 600; }
   .rt-bt2 { background: var(--white); color: var(--blue); border: 1px solid rgba(43,58,143,0.25); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
 
+  /* ABAS */
+  .abas { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: -12px 0 24px; overflow-x: auto; scrollbar-width: none; position: sticky; top: 68px; background: var(--gray-1); z-index: 50; padding-top: 8px; }
+  .abas::-webkit-scrollbar { display: none; }
+  .aba { background: none; border: none; border-bottom: 2px solid transparent; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+  .aba:hover { color: var(--blue); }
+  .aba.ativa { color: var(--blue); border-bottom-color: var(--blue); }
+  .aba-n { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--red); color: #fff; font-size: 10.5px; font-weight: 600; align-items: center; justify-content: center; }
+  .aba-n.show { display: inline-flex; }
+  .barra-mes { display: none; align-items: center; gap: 10px; margin: -12px 0 18px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .barra-mes.show { display: flex; }
+  .barra-mes-dica { font-weight: 300; }
+  .aba-sec { display: none; }
+  .aba-sec.ativa { display: block; }
+
   @media (max-width: 640px) {
+    .abas { top: 68px; margin-top: -4px; }
+    .aba { padding: 9px 10px; font-size: 12px; }
     .rt-tipo { min-width: 100%; }
     .rt-campo input { width: 96px; }
     .rt-tab .lc { display: none; }
@@ -425,8 +441,20 @@
 </header>
 
 <main>
+  <nav class="abas" id="abas" role="tablist">
+    <button class="aba" data-aba="pessoas" onclick="abaIr('pessoas')">👥 Pessoas <span class="aba-n" id="abaNPessoas"></span></button>
+    <button class="aba" data-aba="contas" onclick="abaIr('contas')">⚡ Contas e rateio <span class="aba-n" id="abaNContas"></span></button>
+    <button class="aba" data-aba="atrasos" onclick="abaIr('atrasos')">⏰ Atrasos</button>
+    <button class="aba" data-aba="reembolsos" onclick="abaIr('reembolsos')">💸 Reembolsos <span class="aba-n" id="abaNReemb"></span></button>
+    <button class="aba" data-aba="atalhos" onclick="abaIr('atalhos')">📋 Atalhos</button>
+  </nav>
+  <div class="barra-mes" id="barraMes">
+    <span>Boletos de</span>
+    <input type="month" class="pp-mes" id="ppMes" onchange="ppCarregar(); rtCarregar()">
+    <span class="barra-mes-dica">o mês vale para Pessoas e Contas</span>
+  </div>
 
-  <div class="section">
+  <div class="section aba-sec" data-aba="atalhos">
     <div class="label">Atalhos</div>
     <div class="grid grid-2">
       <a href="https://docs.google.com/document/d/1T6fwl2WO0SYq2_liHRrvcLWfyBqW-q4sw__iR4IWYFk/edit?usp=sharing" target="_blank" class="card">
@@ -452,9 +480,9 @@
     </div>
   </div>
 
-  <div class="divider"></div>
 
-  <div class="section" id="ppSecao">
+
+  <div class="section aba-sec" id="ppSecao" data-aba="pessoas">
     <div class="atrasos-header">
       <div class="label">Pessoas por quarto · rateio de luz e água</div>
       <div class="sync-info">
@@ -463,8 +491,6 @@
       </div>
     </div>
     <div class="pp-top">
-      <span style="font-size:12px;color:var(--muted)">Boletos de</span>
-      <input type="month" class="pp-mes" id="ppMes" onchange="ppCarregar(); rtCarregar()">
       <button class="btn-reload" style="margin-top:0" onclick="ppUsarSugestao()">↺ Repetir o mês anterior nos vazios</button>
     </div>
     <div class="pp-aviso" id="ppAviso" style="display:none"></div>
@@ -475,14 +501,14 @@
     </div>
   </div>
 
-  <div class="divider"></div>
 
-  <div class="section" id="rtSecao">
+
+  <div class="section aba-sec" id="rtSecao" data-aba="contas">
     <div class="atrasos-header">
       <div class="label">Contas do mês e rateio</div>
       <div class="sync-info"><span class="rt-pill sem" id="rtStatus">—</span></div>
     </div>
-    <div style="font-size:12px;color:var(--muted);margin:-6px 0 12px">Contas de consumo que entram nos boletos do mês escolhido em "Pessoas por quarto". Juros e multa da conta não são rateados: saem da Reserva.</div>
+    <div style="font-size:12px;color:var(--muted);margin:-6px 0 12px">Contas de consumo que entram nos boletos do mês escolhido acima. Juros e multa da conta não são rateados: saem da Reserva.</div>
     <div class="pp-wrap" id="rtContas"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando...</div></div>
     <div class="pp-acoes"><button class="pp-salvar" id="rtBtnContas" onclick="rtSalvarContas()">Salvar contas</button></div>
     <div class="pp-aviso" id="rtPend" style="display:none;margin-top:14px"></div>
@@ -494,8 +520,8 @@
     </div>
   </div>
 
-  <div class="divider"></div>
-  <div class="section">
+
+  <div class="section aba-sec" data-aba="atrasos">
     <div class="atrasos-header">
       <div class="label">Atrasos e Inadimplência</div>
       <div class="sync-info">
@@ -571,9 +597,9 @@
     </div>
   </div>
 
-  <div class="divider"></div>
 
-  <div class="section">
+
+  <div class="section aba-sec" data-aba="reembolsos">
     <div class="atrasos-header">
       <div class="label">Reembolsos Solicitados</div>
       <div class="sync-info">
@@ -1083,6 +1109,7 @@
     document.getElementById('rbMPend').textContent    = fmtBRL(totPend);
     document.getElementById('rbMPendSub').textContent = pend.length + ' solicitaç' + (pend.length===1?'ão':'ões');
     document.getElementById('rbMQtd').textContent     = pend.length;
+    abaBadge('abaNReemb', pend.length);
     document.getElementById('rbMQtdSub').textContent  = pend.length === 1 ? 'aguardando pagamento' : 'aguardando pagamento';
     document.getElementById('rbMPago').textContent    = fmtBRL(totMes);
     document.getElementById('rbMPagoSub').textContent = pagosMes.length + ' pag' + (pagosMes.length===1?'a':'as') + ' neste mês';
@@ -1439,6 +1466,7 @@
     ppAviso();
   }
   function ppAviso() {
+    abaBadge('abaNPessoas', ppDados ? ppDados.faltam : 0);
     const vazios = [...document.querySelectorAll('#ppLista .pp-input')].filter(x => x.value === '').length;
     const salvos = ppDados ? ppDados.faltam : 0;
     const el = document.getElementById('ppAviso');
@@ -1540,6 +1568,7 @@
     document.getElementById('rtBtnContas').style.display = fechado ? 'none' : '';
 
     const p = rtRateio.pendencias, pend = document.getElementById('rtPend');
+    abaBadge('abaNContas', p.contas_faltando.length);
     const np = p.pessoas_faltando.length, nc = p.contas_faltando.length;
     pend.style.display = 'block';
     if (np || nc) {
@@ -1549,7 +1578,7 @@
         (nc && np ? ' e ' : '') + (np ? '<b>' + np + (np === 1 ? ' quarto' : ' quartos') + ' sem número de pessoas</b>' : '') + '.';
     } else {
       pend.className = 'pp-aviso ok rt-pend';
-      pend.textContent = fechado ? '✓ Rateio fechado. Os boletos do mês usam estes valores.' : '✓ Tudo preenchido. Confira os valores abaixo e feche o rateio.';
+      pend.textContent = fechado ? '✓ Rateio fechado. Os boletos do mês são emitidos no Atlas (Gestão de Imóveis → Pensão) com estes valores.' : '✓ Tudo preenchido. Confira os valores abaixo e feche o rateio — depois os boletos são emitidos no Atlas.';
     }
     document.getElementById('rtBtnFechar').style.display = fechado ? 'none' : '';
     document.getElementById('rtBtnFechar').disabled = !!(np || nc);
@@ -1620,6 +1649,29 @@
     await rtCarregar();
   }
   rtCarregar();
+
+
+  // ── Abas: o portal é o lugar de DIGITAR; cada assunto numa aba ───────────────
+  const ABAS_OK = ['pessoas', 'contas', 'atrasos', 'reembolsos', 'atalhos'];
+  function abaIr(a, semHash) {
+    if (!ABAS_OK.includes(a)) a = 'pessoas';
+    document.querySelectorAll('.aba').forEach(b => b.classList.toggle('ativa', b.dataset.aba === a));
+    document.querySelectorAll('.aba-sec').forEach(x => x.classList.toggle('ativa', x.dataset.aba === a));
+    document.getElementById('barraMes').classList.toggle('show', a === 'pessoas' || a === 'contas');
+    try { localStorage.setItem('pensao_aba', a); } catch (e) {}
+    if (!semHash) history.replaceState(null, '', '#' + a);
+    window.scrollTo({ top: 0 });
+  }
+  function abaBadge(id, n) {
+    const el = document.getElementById(id); if (!el) return;
+    el.textContent = n > 99 ? '99+' : String(n || '');
+    el.classList.toggle('show', !!n);
+  }
+  (function () {
+    let ini = (location.hash || '').slice(1);
+    if (!ABAS_OK.includes(ini)) { try { ini = localStorage.getItem('pensao_aba') || ''; } catch (e) { ini = ''; } }
+    abaIr(ini || 'pessoas', true);
+  })();
 
   carregar();
   rbCarregar();
