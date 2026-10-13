@@ -515,7 +515,7 @@
       <div class="label">Contas do mês e rateio</div>
       <div class="sync-info"><span class="rt-pill sem" id="rtStatus">—</span></div>
     </div>
-    <div style="font-size:12px;color:var(--muted);margin:-6px 0 12px">Contas de consumo que entram nos boletos do mês escolhido acima. Juros e multa da conta não são rateados: saem da Reserva.</div>
+    <div style="font-size:12px;color:var(--muted);margin:-6px 0 12px">Envie o PDF de cada conta: o valor, o vencimento, os juros e o PIX são lidos dele (o valor só pode ser corrigido depois do PDF). Juros e multa da conta não são rateados: saem da Reserva.</div>
     <div class="pp-wrap" id="rtContas"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando...</div></div>
     <div class="pp-acoes"><button class="pp-salvar" id="rtBtnContas" onclick="rtSalvarContas()">Salvar contas</button></div>
     <div class="pp-aviso" id="rtPend" style="display:none;margin-top:14px"></div>
@@ -1563,10 +1563,12 @@
         const pct = (i.valor / i.anterior - 1) * 100;
         vr = '<span class="rt-var ' + (Math.abs(pct) >= 30 ? 'alta' : 'ok') + '" title="contra o mês anterior">' + (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%</span>';
       }
-      const dis = fechado ? ' disabled' : '';
+      // Eric 13/10: sem PDF não se digita valor — o PDF traz o valor (e o PIX); digitar só corrige o que foi lido
+      const semPdf = !i.tem_pdf;
+      const dis = (fechado || semPdf) ? ' disabled' : '';
       h += '<div class="rt-conta" data-chave="' + rtChave(i) + '" data-inst="' + (i.instalacao_id ?? '') + '" data-imovel="' + i.imovel_id + '" data-tipo="' + i.tipo + '">' +
         '<div class="rt-tipo">' + ROT[i.tipo] + '<small>' + esc(i.identificador || '') + (i.anterior ? ' · anterior ' + fmtN(i.anterior) : '') + '</small></div>' +
-        '<div class="rt-campo"><label>Valor da conta</label><input data-k="valor" inputmode="decimal" class="' + (i.valor == null ? 'vazio' : '') + '" data-orig="' + fmtN(i.valor) + '" value="' + fmtN(i.valor) + '" oninput="rtMudou(this)"' + dis + '></div>' +
+        '<div class="rt-campo"><label>Valor da conta</label><input data-k="valor" inputmode="decimal" class="' + (semPdf || i.valor == null ? 'vazio' : '') + '" data-orig="' + fmtN(i.valor) + '" value="' + fmtN(i.valor) + '" placeholder="' + (semPdf ? 'envie o PDF' : '') + '" oninput="rtMudou(this)"' + dis + '></div>' +
         '<div class="rt-campo"><label>Juros/multa</label><input data-k="juros" inputmode="decimal" data-orig="' + (Number(i.juros_multa) ? fmtN(i.juros_multa) : '') + '" value="' + (Number(i.juros_multa) ? fmtN(i.juros_multa) : '') + '" oninput="rtMudou(this)"' + dis + '></div>' +
         '<div class="rt-campo"><label>Vencimento</label><input data-k="venc" type="date" data-orig="' + (i.vencimento ? String(i.vencimento).slice(0, 10) : '') + '" value="' + (i.vencimento ? String(i.vencimento).slice(0, 10) : '') + '" oninput="rtMudou(this)"' + dis + '></div>' +
         vr + (fechado ? '' : '<button class="rt-up-btn" onclick="rtEscolherPdf(this)">📎 Enviar PDF</button>') +
@@ -1583,7 +1585,7 @@
     if (np || nc) {
       pend.className = 'pp-aviso falta rt-pend';
       pend.innerHTML = '⚠️ Para fechar o rateio falta: ' +
-        (nc ? '<b>' + nc + (nc === 1 ? ' conta' : ' contas') + '</b> (' + p.contas_faltando.map(c => esc(c.imovel + ' ' + (ROT[c.tipo] || c.tipo).replace(/^\S+ /, '') + ' ' + (c.identificador || ''))).join(', ') + ')' : '') +
+        (nc ? '<b>' + nc + (nc === 1 ? ' conta' : ' contas') + ' sem PDF</b> (' + p.contas_faltando.map(c => esc(c.imovel + ' ' + (ROT[c.tipo] || c.tipo).replace(/^\S+ /, '') + ' ' + (c.identificador || '') + (c.motivo === 'sem PDF' ? ' — falta o PDF' : ''))).join(', ') + ')' : '') +
         (nc && np ? ' e ' : '') + (np ? '<b>' + np + (np === 1 ? ' quarto' : ' quartos') + ' sem número de pessoas</b>' : '') + '.';
     } else {
       pend.className = 'pp-aviso ok rt-pend';
