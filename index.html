@@ -503,7 +503,7 @@
     <div class="pp-aviso" id="ppAviso" style="display:none"></div>
     <div class="pp-wrap" id="ppLista"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando...</div></div>
     <div class="pp-acoes">
-      <input class="pp-quem" id="ppQuem" placeholder="Seu nome (fica registrado)">
+      <input class="pp-quem" id="ppQuem" placeholder="Seu nome (fica registrado)" oninput="mostraQuem()">
       <button class="pp-salvar" id="ppBtnSalvar" onclick="ppSalvar()">Salvar</button>
     </div>
   </div>
@@ -516,6 +516,7 @@
       <div class="sync-info"><span class="rt-pill sem" id="rtStatus">—</span></div>
     </div>
     <div style="font-size:12px;color:var(--muted);margin:-6px 0 12px">Envie o PDF de cada conta: o valor, o vencimento, os juros e o PIX são lidos dele (o valor só pode ser corrigido depois do PDF). Juros e multa da conta não são rateados: saem da Reserva.</div>
+    <div style="font-size:12.5px;color:var(--muted);margin:0 0 8px">Enviando como: <b id="rtQuemNome">—</b> · <a href="#" onclick="trocarQuem();return false">trocar</a></div>
     <div class="pp-wrap" id="rtContas"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando...</div></div>
     <div class="pp-acoes"><button class="pp-salvar" id="rtBtnContas" onclick="rtSalvarContas()">Salvar contas</button></div>
     <div class="pp-aviso" id="rtPend" style="display:none;margin-top:14px"></div>
@@ -1503,8 +1504,7 @@
     toast(n ? n + ' quartos preenchidos com o mês anterior — confira e salve' : 'Nenhum quarto vazio com mês anterior');
   }
   async function ppSalvar() {
-    const quem = document.getElementById('ppQuem').value.trim();
-    if (!quem) { toast('Escreva seu nome para ficar registrado'); document.getElementById('ppQuem').focus(); return; }
+    if (!garanteQuem()) return;
     const itens = [...document.querySelectorAll('#ppLista .pp-input')]
       .filter(x => x.value !== '' && x.value !== x.dataset.orig)
       .map(x => ({ contrato_id: Number(x.dataset.id), pessoas: Number(x.value) }));
@@ -1526,6 +1526,7 @@
   }
   document.getElementById('ppMes').value = ppMesPadrao();
   try { document.getElementById('ppQuem').value = localStorage.getItem('pensao_quem') || ''; } catch (e) {}
+  mostraQuem();
   ppCarregar();
 
 
@@ -1624,7 +1625,7 @@
     inp.classList.toggle('mudou', inp.value !== inp.dataset.orig);
   }
   async function rtSalvarContas() {
-    if (!document.getElementById('ppQuem').value.trim()) { toast('Escreva seu nome (campo ao lado do Salvar das pessoas)'); document.getElementById('ppQuem').focus(); return; }
+    if (!garanteQuem()) return;
     const linhas = [...document.querySelectorAll('#rtContas .rt-conta')].filter(l => [...l.querySelectorAll('input')].some(x => x.value !== x.dataset.orig));
     if (!linhas.length) { toast('Nada mudou para salvar'); return; }
     const envios = [];
@@ -1646,14 +1647,14 @@
     finally { btn.disabled = false; btn.textContent = 'Salvar contas'; await rtCarregar(); }
   }
   async function rtFechar() {
-    if (!document.getElementById('ppQuem').value.trim()) { toast('Escreva seu nome para ficar registrado'); return; }
+    if (!garanteQuem()) return;
     if (!confirm('Fechar o rateio de ' + ppNomeMes(rtComp().slice(0, 7)) + '? Os boletos do mês vão usar estes valores.')) return;
     try { await ppChamar('rateio_fechar', { competencia: rtComp() }); toast('Rateio fechado'); }
     catch (e) { toast('Não fechou: ' + e.message); }
     await rtCarregar();
   }
   async function rtReabrir() {
-    if (!document.getElementById('ppQuem').value.trim()) { toast('Escreva seu nome para ficar registrado'); return; }
+    if (!garanteQuem()) return;
     if (!confirm('Reabrir o rateio? Ele volta a rascunho e precisa ser fechado de novo.')) return;
     try { await ppChamar('rateio_reabrir', { competencia: rtComp() }); toast('Rateio reaberto'); }
     catch (e) { toast('Não reabriu: ' + e.message); }
@@ -1720,8 +1721,33 @@
       }
     }
   }
+  // Quem envia as contas não é quem digita as pessoas (Eric 13/10): o nome é pedido na hora, se faltar,
+  // e o navegador lembra. Fica visível no topo da aba de contas, com "trocar".
+  function garanteQuem() {
+    const el = document.getElementById('ppQuem');
+    let v = el.value.trim();
+    if (!v) {
+      v = (prompt('Seu nome (fica registrado como quem enviou/salvou):') || '').trim();
+      if (!v) { toast('Sem o nome não dá para registrar quem fez'); return false; }
+      el.value = v;
+    }
+    try { localStorage.setItem('pensao_quem', v); } catch (e) {}
+    mostraQuem();
+    return true;
+  }
+  function trocarQuem() {
+    const v = (prompt('Seu nome:', document.getElementById('ppQuem').value.trim()) || '').trim();
+    if (!v) return;
+    document.getElementById('ppQuem').value = v;
+    try { localStorage.setItem('pensao_quem', v); } catch (e) {}
+    mostraQuem();
+  }
+  function mostraQuem() {
+    const v = document.getElementById('ppQuem').value.trim(), el = document.getElementById('rtQuemNome');
+    if (el) el.textContent = v || '(ainda não informado — pergunto no primeiro envio)';
+  }
   function rtEscolherPdf(btn) {
-    if (!document.getElementById('ppQuem').value.trim()) { toast('Escreva seu nome (na aba Pessoas, ao lado do Salvar)'); return; }
+    if (!garanteQuem()) return;
     const linha = btn.closest('.rt-conta');
     const inp = document.createElement('input');
     inp.type = 'file'; inp.accept = 'application/pdf,.pdf';
