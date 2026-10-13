@@ -292,7 +292,35 @@
   .modal-erro { display: none; font-size: 12px; color: var(--red); font-weight: 500; margin: 8px 0 0; }
   .modal-erro.show { display: block; }
 
+  /* PESSOAS POR QUARTO (rateio de luz e água) */
+  .pp-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pp-mes { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--white); }
+  .pp-aviso { border-radius: 10px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 12px; line-height: 1.45; }
+  .pp-aviso.falta { background: var(--red-lt); border: 1px solid var(--red-border); color: var(--red); }
+  .pp-aviso.ok { background: var(--green-lt); border: 1px solid var(--green-border); color: var(--green); }
+  .pp-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .pp-grupo { background: var(--gray-1); padding: 8px 16px; font-size: 11px; font-weight: 600; color: var(--blue-mid); letter-spacing: .3px; border-top: 2px solid var(--border); display: flex; justify-content: space-between; }
+  .pp-grupo:first-child { border-top: none; }
+  .pp-linha { display: flex; align-items: center; gap: 12px; padding: 9px 16px; border-top: 1px solid var(--border); }
+  .pp-q { min-width: 58px; font-size: 12px; font-weight: 600; color: var(--blue); background: var(--blue-lt); border-radius: 6px; padding: 3px 8px; text-align: center; }
+  .pp-nome { flex: 1; min-width: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pp-info { font-size: 11px; color: var(--muted); font-weight: 300; white-space: nowrap; }
+  .pp-input { width: 64px; padding: 7px 8px; border: 1px solid var(--gray-3); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 14px; text-align: center; }
+  .pp-input:focus { outline: none; border-color: var(--blue-mid); box-shadow: 0 0 0 3px var(--blue-lt); }
+  .pp-input.vazio { border-color: var(--red); background: var(--red-lt); }
+  .pp-input.mudou { border-color: var(--amber); background: var(--amber-lt); }
+  .pp-curto { display: none; }
+  .pp-input::placeholder { color: var(--red); opacity: .6; }
+  .pp-fixo { width: 64px; text-align: center; font-size: 11px; color: var(--muted); }
+  .pp-acoes { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+  .pp-quem { padding: 7px 10px; border: 1px solid var(--gray-3); border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; width: 170px; }
+  .pp-salvar { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .pp-salvar:disabled { opacity: .5; cursor: default; }
+
   @media (max-width: 640px) {
+    .pp-longo { display: none; }
+    .pp-curto { display: inline; }
+    .pp-quem { width: 100%; }
     header  { padding: 0 16px; }
     .logo-sub { display: none; }
     main    { padding: 20px 12px 60px; }
@@ -392,6 +420,29 @@
         <div class="card-body"><div class="card-title">Análise de Documento</div><div class="card-desc">Solicitar análise</div></div>
         <span class="card-arrow">→</span>
       </a>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section" id="ppSecao">
+    <div class="atrasos-header">
+      <div class="label">Pessoas por quarto · rateio de luz e água</div>
+      <div class="sync-info">
+        <div class="sync-dot loading" id="ppDot"></div>
+        <span id="ppSync">Carregando...</span>
+      </div>
+    </div>
+    <div class="pp-top">
+      <span style="font-size:12px;color:var(--muted)">Boletos de</span>
+      <input type="month" class="pp-mes" id="ppMes" onchange="ppCarregar()">
+      <button class="btn-reload" style="margin-top:0" onclick="ppUsarSugestao()">↺ Repetir o mês anterior nos vazios</button>
+    </div>
+    <div class="pp-aviso" id="ppAviso" style="display:none"></div>
+    <div class="pp-wrap" id="ppLista"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando...</div></div>
+    <div class="pp-acoes">
+      <input class="pp-quem" id="ppQuem" placeholder="Seu nome (fica registrado)">
+      <button class="pp-salvar" id="ppBtnSalvar" onclick="ppSalvar()">Salvar</button>
     </div>
   </div>
 
@@ -1268,6 +1319,126 @@
   }
 
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { rbFechar(); rbFecharDet(); telFechar(); } });
+
+
+  // ── Pessoas por quarto (Atlas · adm.pensao_portal) ─────────────────────────
+  // Sem o número de TODOS os quartos ocupados, o Atlas não gera os boletos do mês.
+  const PP_API = 'https://n8n.flowimoveis.imb.br/webhook/pensao-api';
+  const PP_TOKEN = 'FLOW_PENSAO_2026';
+  let ppDados = null;
+
+  function ppMesPadrao() {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function ppNomeMes(ym) {
+    const [a, m] = ym.split('-').map(Number);
+    return new Date(a, m - 1, 15).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  }
+  async function ppChamar(acao, dados) {
+    const res = await fetch(PP_API, { method: 'POST', body: new URLSearchParams({
+      token: PP_TOKEN, acao, dados: JSON.stringify(dados), por: document.getElementById('ppQuem').value.trim() }) });
+    let json = {};
+    try { json = await res.json(); } catch (e) { /* corpo não-JSON vira erro abaixo */ }
+    if (!res.ok || !json.ok) throw new Error(json.erro || 'HTTP ' + res.status);
+    return json;
+  }
+  async function ppCarregar() {
+    const mes = document.getElementById('ppMes').value || ppMesPadrao();
+    const dot = document.getElementById('ppDot');
+    dot.className = 'sync-dot loading';
+    document.getElementById('ppSync').textContent = 'Carregando...';
+    try {
+      ppDados = await ppChamar('pessoas_listar', { competencia: mes + '-01' });
+      ppRender();
+      dot.className = 'sync-dot ok';
+      document.getElementById('ppSync').textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      console.error(e);
+      ppDados = null;
+      dot.className = 'sync-dot erro';
+      document.getElementById('ppSync').textContent = 'Erro ao carregar';
+      document.getElementById('ppLista').innerHTML = '<div style="padding:24px;text-align:center;color:var(--red);font-size:13px">⚠️ Não foi possível carregar os quartos: ' + esc(e.message) + '</div>';
+      document.getElementById('ppAviso').style.display = 'none';
+    }
+  }
+  function ppRender() {
+    const itens = ppDados.itens || [];
+    let html = '', grupo = null;
+    const porImovel = {};
+    itens.forEach(i => { porImovel[i.imovel] = (porImovel[i.imovel] || 0) + (i.dispensa ? 0 : Number(i.pessoas ?? 0)); });
+    itens.forEach(i => {
+      if (i.imovel !== grupo) {
+        grupo = i.imovel;
+        html += '<div class="pp-grupo"><span>Pensão ' + esc(grupo) + '</span><span id="ppTot' + esc(grupo) + '">' + porImovel[grupo] + ' pessoas</span></div>';
+      }
+      const q = String(i.unidades).replace('SALAO', 'Salão');
+      const campo = i.dispensa
+        ? '<span class="pp-fixo" title="Salão: paga água de 3 pessoas, sem luz">fixo</span>'
+        : '<input class="pp-input' + (i.pessoas == null ? ' vazio' : '') + '" type="number" min="0" max="20" inputmode="numeric" data-id="' + i.contrato_id +
+          '" data-orig="' + (i.pessoas ?? '') + '" data-imovel="' + esc(i.imovel) + '" value="' + (i.pessoas ?? '') + '" data-sug="' + (i.sugestao ?? '') + '" placeholder="?' +
+          '" oninput="ppMudou(this)">';
+      const info = i.informado ? '<span class="pp-longo">salvo por ' + esc(i.informado) + '</span>'
+        : (i.sugestao != null ? '<span class="pp-longo">mês anterior: </span><span class="pp-curto">ant. </span>' + i.sugestao : '');
+      html += '<div class="pp-linha"><span class="pp-q">' + esc(q) + '</span><span class="pp-nome" title="' + esc(i.locatario_nome) + '">' +
+              esc(i.locatario_nome) + '</span><span class="pp-info">' + info + '</span>' + campo + '</div>';
+    });
+    document.getElementById('ppLista').innerHTML = html || '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum contrato neste mês.</div>';
+    ppAviso();
+  }
+  function ppAviso() {
+    const vazios = [...document.querySelectorAll('#ppLista .pp-input')].filter(x => x.value === '').length;
+    const salvos = ppDados ? ppDados.faltam : 0;
+    const el = document.getElementById('ppAviso');
+    const mes = ppNomeMes(document.getElementById('ppMes').value);
+    el.style.display = 'block';
+    if (salvos > 0) {
+      el.className = 'pp-aviso falta';
+      el.textContent = '⚠️ ' + salvos + (salvos === 1 ? ' quarto sem' : ' quartos sem') + ' número de pessoas salvo para ' + mes +
+        '. Os boletos desse mês não são gerados até completar.' + (vazios < salvos ? ' (Há valores digitados ainda não salvos.)' : '');
+    } else {
+      el.className = 'pp-aviso ok';
+      el.textContent = '✓ Todos os quartos de ' + mes + ' estão com o número de pessoas.';
+    }
+  }
+  function ppMudou(inp) {
+    inp.classList.toggle('vazio', inp.value === '');
+    inp.classList.toggle('mudou', inp.value !== '' && inp.value !== inp.dataset.orig);
+    const tot = {};
+    document.querySelectorAll('#ppLista .pp-input').forEach(x => { tot[x.dataset.imovel] = (tot[x.dataset.imovel] || 0) + Number(x.value || 0); });
+    Object.entries(tot).forEach(([k, v]) => { const el = document.getElementById('ppTot' + k); if (el) el.textContent = v + ' pessoas'; });
+  }
+  function ppUsarSugestao() {
+    let n = 0;
+    document.querySelectorAll('#ppLista .pp-input').forEach(x => {
+      if (x.value === '' && x.dataset.sug !== '') { x.value = x.dataset.sug; ppMudou(x); n++; }
+    });
+    toast(n ? n + ' quartos preenchidos com o mês anterior — confira e salve' : 'Nenhum quarto vazio com mês anterior');
+  }
+  async function ppSalvar() {
+    const quem = document.getElementById('ppQuem').value.trim();
+    if (!quem) { toast('Escreva seu nome para ficar registrado'); document.getElementById('ppQuem').focus(); return; }
+    const itens = [...document.querySelectorAll('#ppLista .pp-input')]
+      .filter(x => x.value !== '' && x.value !== x.dataset.orig)
+      .map(x => ({ contrato_id: Number(x.dataset.id), pessoas: Number(x.value) }));
+    if (itens.some(i => !Number.isInteger(i.pessoas) || i.pessoas < 0 || i.pessoas > 20)) { toast('Use números inteiros de 0 a 20'); return; }
+    if (!itens.length) { toast('Nada mudou para salvar'); return; }
+    const btn = document.getElementById('ppBtnSalvar');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+    try {
+      const r = await ppChamar('pessoas_salvar', { competencia: document.getElementById('ppMes').value + '-01', itens });
+      localStorage.setItem('pensao_quem', quem);
+      if (r.gravados !== itens.length) throw new Error('gravou ' + r.gravados + ' de ' + itens.length);
+      toast(r.gravados + (r.gravados === 1 ? ' quarto salvo' : ' quartos salvos'));
+      await ppCarregar();
+    } catch (e) {
+      console.error(e);
+      toast('Não salvou: ' + e.message);
+    } finally { btn.disabled = false; btn.textContent = 'Salvar'; }
+  }
+  document.getElementById('ppMes').value = ppMesPadrao();
+  try { document.getElementById('ppQuem').value = localStorage.getItem('pensao_quem') || ''; } catch (e) {}
+  ppCarregar();
 
   carregar();
   rbCarregar();
