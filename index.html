@@ -46,6 +46,17 @@
   .grid   { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
   .grid-2 { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 
+  .fc-fundos { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 14px; }
+  .fc-fundos button { border: 1px solid var(--border); background: var(--white); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer; color: var(--muted); }
+  .fc-fundos button.ativo { border-color: #2B3A8F; color: #2B3A8F; background: #EEF2FF; font-weight: 600; }
+  .fc-mes { background: var(--white); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+  .fc-cab { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; cursor: pointer; flex-wrap: wrap; }
+  .fc-cab b { font-size: 14px; } .fc-cab .fc-tag { font-size: 11px; border-radius: 999px; padding: 2px 8px; background: #F3F4F6; color: var(--muted); }
+  .fc-cab .fc-tag.ok { background: #ECFDF5; color: #047857; }
+  .fc-corpo { padding: 0 16px 14px; display: none; } .fc-mes.aberto .fc-corpo { display: block; }
+  .fc-l { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 3px 0; } .fc-l.f { font-weight: 700; } .fc-l.i { padding-left: 14px; }
+  .fc-t { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 2px; }
+  .fc-saldo { border-top: 2px solid var(--text); margin-top: 8px; padding-top: 4px; }
   .card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; display: flex; align-items: center; gap: 14px; text-decoration: none; color: var(--text); transition: box-shadow .18s, border-color .18s, transform .18s; animation: fadeUp .3s both; }
   .card:hover { box-shadow: var(--shadow-h); border-color: rgba(43,58,143,0.22); transform: translateY(-2px); }
   .card-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--blue-lt); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
@@ -534,12 +545,23 @@
     <button class="aba" data-aba="pessoas" onclick="abaIr('pessoas')">👥 Pessoas <span class="aba-n" id="abaNPessoas"></span></button>
     <button class="aba" data-aba="contas" onclick="abaIr('contas')">⚡ Contas e rateio <span class="aba-n" id="abaNContas"></span></button>
     <button class="aba" data-aba="reembolsos" onclick="abaIr('reembolsos')">💸 Reembolsos <span class="aba-n" id="abaNReemb"></span></button>
+    <button class="aba" data-aba="fechamentos" onclick="abaIr('fechamentos')">📒 Fechamentos</button>
     <button class="aba" data-aba="atalhos" onclick="abaIr('atalhos')">📋 Atalhos</button>
   </nav>
   <div class="barra-mes" id="barraMes">
     <span>Boletos de</span>
     <input type="month" class="pp-mes" id="ppMes" onchange="ppCarregar(); rtCarregar()">
     <span class="barra-mes-dica">o mês vale para Pessoas e Contas</span>
+  </div>
+
+  <!-- Fechamentos mês a mês (Eric 14/10): o mesmo fechamento do Atlas (Contábil › Fechamento), por fundo -->
+  <div class="section aba-sec" data-aba="fechamentos">
+    <div class="atrasos-header">
+      <div class="label">Fechamentos — mês a mês</div>
+      <div class="sync-info"><div class="sync-dot loading" id="fcDot"></div><span id="fcSync">Carregando...</span></div>
+    </div>
+    <div id="fcFundos" class="fc-fundos"></div>
+    <div id="fcLista"></div>
   </div>
 
   <div class="section aba-sec" data-aba="atalhos">
@@ -1882,7 +1904,7 @@
 
 
   // ── Abas: o portal é o lugar de DIGITAR; cada assunto numa aba ───────────────
-  const ABAS_OK = ['atrasos', 'pessoas', 'contas', 'reembolsos', 'atalhos'];
+  const ABAS_OK = ['atrasos', 'pessoas', 'contas', 'reembolsos', 'fechamentos', 'atalhos'];
   function abaIr(a, semHash) {
     if (!ABAS_OK.includes(a)) a = 'atrasos';
     document.querySelectorAll('.aba').forEach(b => b.classList.toggle('ativa', b.dataset.aba === a));
@@ -1890,6 +1912,48 @@
     document.getElementById('barraMes').classList.toggle('show', a === 'pessoas' || a === 'contas');
     if (!semHash) history.replaceState(null, '', '#' + a);
     window.scrollTo({ top: 0 });
+    if (a === 'fechamentos' && !fcDados) fcCarregar();
+  }
+  // ---------------------------------------------------------------- Fechamentos (Eric 14/10)
+  let fcDados = null, fcFundo = null;
+  const fcBrl = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const fcMes = d => { const [a, m] = String(d).slice(0, 7).split('-').map(Number); return new Date(a, m - 1, 15).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); };
+  const fcEsc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  async function fcCarregar() {
+    const dot = document.getElementById('fcDot'), sync = document.getElementById('fcSync');
+    dot.className = 'sync-dot loading'; sync.textContent = 'Carregando...';
+    try {
+      fcDados = await ppChamar('fechamentos', {});
+      if (!fcFundo && fcDados.fundos && fcDados.fundos.length) fcFundo = fcDados.fundos[0].id;
+      fcRender(); dot.className = 'sync-dot'; sync.textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) { dot.className = 'sync-dot erro'; sync.textContent = 'Erro: ' + e.message; fcDados = null; }
+  }
+  function fcCorpo(c) {
+    const L = (l, v, cls) => `<div class="fc-l ${cls || ''}"><span>${fcEsc(l)}</span><span>${v == null ? '' : fcBrl(v)}</span></div>`;
+    let h = L('Saldo mês anterior', c.saldo_anterior, 'f') + '<div class="fc-t">Entradas</div>';
+    (c.entradas_det || []).forEach(e => { h += L(e.grupo, e.valor, 'i'); });
+    h += L('Total entradas', c.entradas, 'f') + '<div class="fc-t">Saídas</div>';
+    (c.saidas_det || []).forEach(e => { h += L(e.grupo, e.valor, 'i'); });
+    if (!(c.saidas_det || []).length) h += '<div class="fc-l i" style="color:var(--muted)">nenhuma conta paga</div>';
+    h += L('Total saídas', c.saidas, 'f');
+    if (Number(c.provisoes)) { h += '<div class="fc-t">Provisões (contas do mês ainda não pagas)</div>'; (c.provisoes_det || []).forEach(e => { h += L(e.conta, e.valor, 'i'); }); h += L('Total provisões', c.provisoes, 'f'); }
+    h += `<div class="fc-saldo">${L('Saldo', c.saldo, 'f')}</div><div class="fc-t">Distribuição</div>`;
+    if (Number(c.distribuir) > 0) (c.donos || []).forEach(d => { h += L(`${d.nome} (${Number(d.pct).toFixed(2).replace('.', ',')}%)`, d.valor, 'i'); });
+    else h += '<div class="fc-l i" style="color:var(--muted)">Saldo negativo ou zero: carrega para o mês seguinte.</div>';
+    return h;
+  }
+  function fcRender() {
+    const fs = (fcDados && fcDados.fundos) || [];
+    document.getElementById('fcFundos').innerHTML = fs.map(f => `<button class="${f.id === fcFundo ? 'ativo' : ''}" onclick="fcFundo=${f.id};fcRender()">${fcEsc(f.nome)}</button>`).join('');
+    const f = fs.find(x => x.id === fcFundo); if (!f) { document.getElementById('fcLista').innerHTML = ''; return; }
+    const meses = [];
+    if (f.previa && !f.previa.fechado) meses.push({ c: f.previa, tag: 'Prévia (mês em andamento)', ok: false });
+    (f.fechados || []).forEach(x => meses.push({ c: x.detalhe, tag: 'Fechado em ' + new Date(x.fechado_em).toLocaleDateString('pt-BR'), ok: true }));
+    document.getElementById('fcLista').innerHTML = meses.length ? meses.map((m, k) => `<div class="fc-mes ${k === 0 ? 'aberto' : ''}">
+        <div class="fc-cab" onclick="this.parentElement.classList.toggle('aberto')"><b>${fcEsc(fcMes(m.c.competencia))}</b>
+          <span><span class="fc-tag ${m.ok ? 'ok' : ''}">${fcEsc(m.tag)}</span> &nbsp;saldo <b>${fcBrl(m.c.saldo)}</b></span></div>
+        <div class="fc-corpo">${fcCorpo(m.c)}</div></div>`).join('')
+      : '<div style="color:var(--muted);font-size:13px">Nenhum fechamento ainda: o primeiro é o de novembro/2026, no último dia do mês.</div>';
   }
   function abaBadge(id, n) {
     const el = document.getElementById(id); if (!el) return;
