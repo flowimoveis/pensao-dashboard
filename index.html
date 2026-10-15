@@ -545,6 +545,7 @@
     <button class="aba" data-aba="pessoas" onclick="abaIr('pessoas')">👥 Pessoas <span class="aba-n" id="abaNPessoas"></span></button>
     <button class="aba" data-aba="contas" onclick="abaIr('contas')">⚡ Contas e rateio <span class="aba-n" id="abaNContas"></span></button>
     <button class="aba" data-aba="reembolsos" onclick="abaIr('reembolsos')">💸 Reembolsos <span class="aba-n" id="abaNReemb"></span></button>
+    <button class="aba" data-aba="boletos" onclick="abaIr('boletos')">🧾 Boletos <span class="aba-n" id="abaNBol"></span></button>
     <button class="aba" data-aba="fechamentos" onclick="abaIr('fechamentos')">📒 Fechamentos</button>
     <button class="aba" data-aba="atalhos" onclick="abaIr('atalhos')">📋 Atalhos</button>
   </nav>
@@ -552,6 +553,26 @@
     <span>Boletos de</span>
     <input type="month" class="pp-mes" id="ppMes" onchange="ppCarregar(); rtCarregar()">
     <span class="barra-mes-dica">o mês vale para Pessoas e Contas</span>
+  </div>
+
+  <!-- Boletos (Eric 15/10): a Ariane reemite boleto vencido com juros e multa ou abonado; 2ª via. Boleto do Itaú (Atlas) o portal
+       reemite e o robô atualiza o Itaú; boleto da Superlógica: só a 2ª via — para reemitir, contato com a Flow. -->
+  <div class="section aba-sec" data-aba="boletos">
+    <div class="atrasos-header">
+      <div class="label">Boletos em aberto</div>
+      <div class="sync-info"><div class="sync-dot loading" id="blDot"></div><span id="blSync">Carregando...</span></div>
+    </div>
+    <div class="fc-fundos" id="blFiltro">
+      <button class="ativo" data-f="vencidos" onclick="blFiltrar('vencidos')">Vencidos</button>
+      <button data-f="avencer" onclick="blFiltrar('avencer')">A vencer</button>
+      <button data-f="todos" onclick="blFiltrar('todos')">Todos</button>
+    </div>
+    <div id="blLista"></div>
+  </div>
+  <div class="senha-box" id="blModal" style="display:none" onclick="if(event.target===this)blFechar()">
+    <div class="senha-card" style="max-width:420px">
+      <div id="blModalCorpo"></div>
+    </div>
   </div>
 
   <!-- Fechamentos mês a mês (Eric 14/10): o mesmo fechamento do Atlas (Contábil › Fechamento), por fundo -->
@@ -1904,7 +1925,7 @@
 
 
   // ── Abas: o portal é o lugar de DIGITAR; cada assunto numa aba ───────────────
-  const ABAS_OK = ['atrasos', 'pessoas', 'contas', 'reembolsos', 'fechamentos', 'atalhos'];
+  const ABAS_OK = ['atrasos', 'pessoas', 'contas', 'reembolsos', 'boletos', 'fechamentos', 'atalhos'];
   function abaIr(a, semHash) {
     if (!ABAS_OK.includes(a)) a = 'atrasos';
     document.querySelectorAll('.aba').forEach(b => b.classList.toggle('ativa', b.dataset.aba === a));
@@ -1913,6 +1934,68 @@
     if (!semHash) history.replaceState(null, '', '#' + a);
     window.scrollTo({ top: 0 });
     if (a === 'fechamentos' && !fcDados) fcCarregar();
+    if (a === 'boletos') blCarregar();
+  }
+  // ---------------------------------------------------------------- Boletos (Eric 15/10)
+  let blDados = null, blF = 'vencidos', blAtual = null, blSim = null;
+  const blData = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '';
+  const blHoje = () => new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
+  const blMais = n => new Date(Date.now() - 3 * 3600 * 1000 + n * 86400000).toISOString().slice(0, 10);
+  async function blCarregar() {
+    const dot = document.getElementById('blDot'), sync = document.getElementById('blSync');
+    dot.className = 'sync-dot loading'; sync.textContent = 'Carregando...';
+    try {
+      blDados = await ppChamar('boletos_abertos', {});
+      abaBadge('abaNBol', (blDados.itens || []).filter(b => b.dias_atraso > 0).length);
+      blRender(); dot.className = 'sync-dot'; sync.textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) { dot.className = 'sync-dot erro'; sync.textContent = 'Erro: ' + e.message; }
+  }
+  function blFiltrar(f) { blF = f; document.querySelectorAll('#blFiltro button').forEach(b => b.classList.toggle('ativo', b.dataset.f === f)); blRender(); }
+  function blRender() {
+    const l = ((blDados && blDados.itens) || []).filter(b => blF === 'todos' || (blF === 'vencidos' ? b.dias_atraso > 0 : b.dias_atraso === 0));
+    document.getElementById('blLista').innerHTML = !l.length ? '<div style="color:var(--muted);font-size:13px">Nenhum boleto neste filtro.</div>' : l.map(b => `
+      <div class="fc-mes" style="padding:10px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px"><b>${fcEsc(b.rotulo)}</b> · ${fcEsc(b.locatario || '')}
+          <div style="font-size:12px;color:var(--muted)">vence ${blData(b.vencimento)}${b.dias_atraso > 0 ? ` · <span style="color:#B42318">${b.dias_atraso} dia(s) em atraso</span>` : ''}
+            · <span class="fc-tag ${b.origem === 'itau' ? 'ok' : ''}">${b.origem === 'itau' ? 'Itaú (Atlas)' : 'Superlógica'}</span>${b.status === 'a_registrar' ? ' · registrando no Itaú…' : ''}${b.reemissao ? ' · reemitido' : ''}</div></div>
+        <b>${fcBrl(b.valor)}</b>
+        ${b.segunda_via ? `<a href="${fcEsc(b.segunda_via)}" target="_blank" rel="noopener" class="btn-sec" style="text-decoration:none;padding:6px 10px;border:1px solid var(--line,#ddd);border-radius:8px;font-size:13px">2ª via</a>` : ''}
+        <button onclick="blAbrir('${b.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#2B3156;color:#fff;font-size:13px;cursor:pointer">Reemitir</button>
+      </div>`).join('');
+  }
+  function blFechar() { document.getElementById('blModal').style.display = 'none'; blAtual = null; blSim = null; }
+  async function blAbrir(id) {
+    blAtual = blDados.itens.find(b => b.id === id); blSim = null;
+    document.getElementById('blModal').style.display = 'flex'; blModal(blMais(2));
+  }
+  async function blModal(venc) {
+    const b = blAtual; const c = document.getElementById('blModalCorpo');
+    c.innerHTML = `<div style="font-weight:700;font-size:16px;margin-bottom:4px">Reemitir boleto · ${fcEsc(b.rotulo)}</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">${fcEsc(b.locatario || '')} · ${fcBrl(b.valor)} · venceu ${blData(b.vencimento_original)}</div>
+      <label style="font-size:12px;color:var(--muted)">Novo vencimento</label>
+      <input type="date" id="blVenc" value="${venc}" min="${blHoje()}" max="${blMais(30)}" onchange="blModal(this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;margin:4px 0 12px">
+      <div id="blOpcoes" style="font-size:13px;color:var(--muted)">Calculando…</div>`;
+    let sim = null;
+    if (b.origem === 'itau') { try { sim = await ppChamar('boleto_simular', { id: b.id, vencimento: venc }); } catch (e) { sim = null; } }
+    const op = (k, tit, det) => `<label style="display:block;border:1px solid #ddd;border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+        <input type="radio" name="blModo" value="${k}" ${k === 'com_juros' ? 'checked' : ''}> <b>${tit}</b><div style="font-size:12px;color:var(--muted);margin:2px 0 0 20px">${det}</div></label>`;
+    document.getElementById('blOpcoes').innerHTML =
+      op('com_juros', 'Com juros e multa' + (sim ? ' · ' + fcBrl(sim.com_juros.total) : ''), sim ? `multa 10% ${fcBrl(sim.com_juros.multa)} + juros ${fcBrl(sim.com_juros.juros)} (${sim.com_juros.dias} dias) → reserva` : 'multa 10% + juros 1% ao mês até o novo vencimento') +
+      op('abonado', 'Abonado (sem juros e multa)' + (sim ? ' · ' + fcBrl(sim.abonado.total) : ''), 'mesmo valor, só o vencimento novo') +
+      `<button onclick="blConfirmar()" style="width:100%;padding:10px;border-radius:10px;border:none;background:#2B3156;color:#fff;font-size:14px;margin-top:6px;cursor:pointer">Confirmar e reemitir</button>
+       <button onclick="blFechar()" style="width:100%;padding:8px;border:none;background:none;color:var(--muted);margin-top:4px;cursor:pointer">Cancelar</button>
+       <div id="blMsg" style="font-size:13px;margin-top:8px"></div>`;
+  }
+  async function blConfirmar() {
+    const b = blAtual, venc = document.getElementById('blVenc').value, modo = (document.querySelector('input[name=blModo]:checked') || {}).value;
+    const msg = document.getElementById('blMsg'); msg.style.color = 'var(--muted)'; msg.textContent = 'Validando…';
+    try {
+      // validação no fim (Eric 15/10): Itaú → reemite; Superlógica → o servidor recusa e orienta contato
+      const r = await ppChamar('boleto_reemitir', { id: b.id, modo, vencimento: venc });
+      msg.style.color = '#1E7A4F';
+      msg.textContent = `Pronto: novo boleto de ${fcBrl(r.valor)} vencendo ${blData(venc)} — o Itaú registra em até 5 minutos (a 2ª via aparece aqui). O antigo foi cancelado e é baixado no Itaú.`;
+      setTimeout(() => { blFechar(); blCarregar(); }, 4000);
+    } catch (e) { msg.style.color = '#B42318'; msg.textContent = e.message; }
   }
   // ---------------------------------------------------------------- Fechamentos (Eric 14/10)
   let fcDados = null, fcFundo = null;
