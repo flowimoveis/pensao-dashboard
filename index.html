@@ -351,6 +351,12 @@
   .rt-scroll { overflow-x: auto; }
   .rt-pend { font-size: 12.5px; line-height: 1.5; }
   .rt-pend b { font-weight: 600; }
+  .rt-docs { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin-top: 14px; }
+  .rt-doc { background: var(--white); border: 1px solid rgba(43,58,143,0.12); border-radius: 10px; padding: 12px 14px; }
+  .rt-doc-t { font-weight: 700; font-size: 13.5px; margin-bottom: 8px; }
+  .rt-doc-b { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rt-doc-b .rt-bt2 { padding: 7px 10px; font-size: 12.5px; }
+  .rt-doc-msg { font-size: 11.5px; color: var(--muted); margin-top: 6px; min-height: 14px; }
   .rt-bt2 { background: var(--white); color: var(--blue); border: 1px solid rgba(43,58,143,0.25); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
 
   /* ABAS */
@@ -633,6 +639,13 @@
     <div class="pp-aviso" id="rtPend" style="display:none;margin-top:14px"></div>
     <div class="pp-wrap rt-scroll" id="rtResumo" style="margin-top:12px;display:none"></div>
     <div class="pp-wrap rt-scroll" id="rtContratos" style="margin-top:12px;display:none"></div>
+    <div class="label" style="margin-top:18px">Documentos do rateio · <span id="rtDocsMes"></span></div>
+    <div style="font-size:12px;color:var(--muted);margin:2px 0 0">Imprima o quadro de rateio de cada pensão (PDF) ou baixe os PDFs das contas que o compuseram (um .zip por pensão).</div>
+    <div class="rt-docs" id="rtDocs">
+      <div class="rt-doc"><div class="rt-doc-t">Pensão 118</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('118', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('118', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg118"></div></div>
+      <div class="rt-doc"><div class="rt-doc-t">Pensão 210</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('210', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('210', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg210"></div></div>
+      <div class="rt-doc"><div class="rt-doc-t">Pensão 222</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('222', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('222', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg222"></div></div>
+    </div>
     <div class="pp-acoes">
       <button class="rt-bt2" id="rtBtnReabrir" style="display:none" onclick="rtReabrir()">Reabrir rateio</button>
       <button class="pp-salvar" id="rtBtnFechar" onclick="rtFechar()">Fechar rateio do mês</button>
@@ -1701,6 +1714,7 @@
         '</div>';
     });
     document.getElementById('rtContas').innerHTML = h;
+    const dm = document.getElementById('rtDocsMes'); if (dm) dm.textContent = 'competência ' + rtComp().slice(5, 7) + '/' + rtComp().slice(0, 4);
     document.getElementById('rtBtnContas').style.display = fechado ? 'none' : '';
 
     const p = rtRateio.pendencias, pend = document.getElementById('rtPend');
@@ -1785,6 +1799,147 @@
     await rtCarregar();
   }
   rtCarregar();
+
+  // ── Documentos do rateio (Eric 20/10/2026): imprimir o quadro de rateio por pensão (PDF) e baixar as contas que o compuseram ──
+  // Dados: ação 'rateio_doc' (só leitura). Contas: ação 'contas_arquivos' → links assinados do worker de mídia, válidos por 1 hora.
+  function carregaJs(src, teste) {
+    if (teste()) return Promise.resolve();
+    return new Promise((ok, falha) => {
+      const sc = document.createElement('script'); sc.src = src;
+      sc.onload = () => ok(); sc.onerror = () => falha(new Error('não consegui carregar ' + src.split('/').pop()));
+      document.head.appendChild(sc);
+    });
+  }
+  async function carregaJsPdf() {
+    await carregaJs('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', () => window.jspdf && window.jspdf.jsPDF);
+    await carregaJs('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js', () => window.jspdf && window.jspdf.jsPDF.API.autoTable);
+    return window.jspdf.jsPDF;
+  }
+  function rtDocMsg(im, txt) { const el = document.getElementById('rtDocMsg' + im); if (el) el.textContent = txt || ''; }
+  const dataBR = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '-';
+  const nomeQuarto = cod => { const q = String(cod || '').replace(/^Pens[ãa]o\s*\d+\s*-?\s*/i, '').replace(/^Quarto\s*/i, ''); return q === 'A' ? 'Loja' : (q || cod || ''); };
+  // monta o PDF a partir do JSON de 'rateio_doc' (função pura: a mesma gera o exemplo fora do navegador)
+  function rateioPdfMontar(jsPDF, d) {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = doc.internal.pageSize.getWidth(), M = 14, AZUL = [43, 58, 143];
+    const n = v => v == null ? '-' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const comp = String(d.competencia).slice(0, 7), [ca, cm] = comp.split('-').map(Number);
+    const mesNome = (a, m) => new Date(a, m - 1, 15).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const ant = cm === 1 ? [ca - 1, 12] : [ca, cm - 1];
+    const ROTT = { luz: 'Luz', agua: 'Água', iptu: 'IPTU' }, DIV = { luz: 'pessoas', agua: 'cabeças', iptu: 'cotas' };
+    // cabeçalho
+    doc.setFillColor(...AZUL); doc.rect(0, 0, W, 24, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+    doc.text('Flow Imóveis · Pensão ' + d.imovel.numero, M, 11);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+    doc.text((d.imovel.endereco || '') + (d.imovel.cep ? ' · CEP ' + d.imovel.cep : '') + ' · São Paulo/SP', M, 18);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text('Quadro de rateio', W - M, 11, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.text('Competência ' + String(cm).padStart(2, '0') + '/' + ca, W - M, 18, { align: 'right' });
+    doc.setTextColor(30, 30, 30); doc.setFontSize(9.5);
+    let y = 31;
+    doc.text('Boletos de ' + mesNome(ca, cm) + ' · contas de consumo de ' + mesNome(...ant) + ' (rateadas no mês seguinte).', M, y); y += 5;
+    const st = d.rateio_status === 'fechado' ? 'Rateio FECHADO por ' + (d.fechado || '-')
+      : d.rateio_status === 'rascunho' ? 'RASCUNHO - rateio ainda não fechado (último cálculo em ' + (d.calculado_em || '-') + '). Os valores podem mudar.'
+      : 'Sem rateio calculado para esta competência.';
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(...(d.rateio_status === 'fechado' ? [21, 128, 61] : [180, 83, 9]));
+    doc.text(st, M, y); doc.setTextColor(30, 30, 30); doc.setFont('helvetica', 'normal'); y += 7;
+    const tit = t => { doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...AZUL); doc.text(t, M, y); doc.setTextColor(30, 30, 30); doc.setFont('helvetica', 'normal'); y += 2; };
+    const base = { theme: 'grid', margin: { left: M, right: M, bottom: 16 }, styles: { fontSize: 8.3, cellPadding: 1.6, lineColor: [215, 219, 235], lineWidth: 0.2 },
+      headStyles: { fillColor: [236, 239, 250], textColor: [30, 30, 30], fontStyle: 'bold' }, footStyles: { fillColor: [236, 239, 250], textColor: [30, 30, 30], fontStyle: 'bold' } };
+    // 1. contas
+    tit('Contas que compõem o rateio');
+    const C = d.contas || [];
+    const tot = k => C.reduce((s, c) => s + Number(c[k] || 0), 0);
+    doc.autoTable({ ...base, startY: y,
+      head: [['Fornecedor', 'Nº / RGI / inscrição', 'Referência', 'Vencimento', 'Valor pago / a pagar', 'Crédito usado', 'Juros/multa', 'Base do rateio', 'Situação']],
+      body: C.length ? C.map(c => [c.fornecedor + (ROTT[c.tipo] && c.tipo !== 'iptu' ? ' (' + ROTT[c.tipo] + ')' : ''), c.identificador || '-',
+        c.referencia ? String(c.referencia).slice(5, 7) + '/' + String(c.referencia).slice(0, 4) : '-', dataBR(c.vencimento), n(c.valor),
+        Number(c.credito) ? n(c.credito) : '-', Number(c.juros_multa) ? n(c.juros_multa) : '-', n(c.base),
+        c.status === 'paga' ? 'Paga ' + dataBR(c.pago_em) : c.status === 'fora_atlas' ? 'Paga (Superlógica)' : 'Em aberto'])
+        : [[{ content: 'Nenhuma conta lançada nesta competência.', colSpan: 9 }]],
+      foot: C.length ? [['Total', '', '', '', n(tot('valor')), n(tot('credito')), n(tot('juros_multa')), n(tot('base')), '']] : undefined,
+      columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' } },
+      didParseCell: h => { if (h.section !== 'body' && [4, 5, 6, 7].includes(h.column.index)) h.cell.styles.halign = 'right'; } });
+    y = doc.lastAutoTable.finalY + 3;
+    doc.setFontSize(7.8); doc.setTextColor(90, 90, 90);
+    const notas = doc.splitTextToSize('Base do rateio = valor da conta + crédito da concessionária usado - juros/multa. O crédito não reduz o rateio (quem consumiu paga o consumo do período) e juros/multa não são rateados: saem da Reserva do fundo.', W - 2 * M);
+    doc.text(notas, M, y + 2); y += 8 + notas.length * 3.3; doc.setTextColor(30, 30, 30);
+    // 2. resumo
+    tit('Divisão de cada conta');
+    const R = d.resumo || [];
+    doc.autoTable({ ...base, startY: y,
+      head: [['Conta', 'Base do rateio', 'Dividido por', 'Valor por unidade', 'Rateado aos quartos', 'Fica com o fundo', 'Arredond.']],
+      body: R.length ? R.map(r => [ROTT[r.tipo] || r.tipo, n(r.conta), Number(r.base).toLocaleString('pt-BR') + ' ' + (DIV[r.tipo] || ''), n(r.unitario), n(r.rateado), Number(r.fundo) ? n(r.fundo) : '-', n(r.diferenca)])
+        : [[{ content: 'Rateio ainda não calculado.', colSpan: 7 }]],
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
+      didParseCell: h => { if (h.section === 'head' && h.column.index > 0) h.cell.styles.halign = 'right'; } });
+    y = doc.lastAutoTable.finalY + 7;
+    // 3. por quarto
+    if (y > 250) { doc.addPage(); y = 18; }
+    tit('Rateio por quarto');
+    const Q = d.contratos || [];
+    const tq = k => Q.reduce((s, c) => s + Number(c[k] || 0), 0);
+    doc.autoTable({ ...base, startY: y,
+      head: [['Quarto', 'Morador', 'Pessoas', 'Luz', 'Água', 'IPTU', 'Total']],
+      body: Q.length ? Q.map(c => [nomeQuarto(c.codigo), c.locatario || '-', c.pessoas == null ? '-' : Number(c.pessoas).toLocaleString('pt-BR'), n(c.luz), n(c.agua), n(c.iptu), n(c.total)])
+        : [[{ content: 'Sem quartos no rateio.', colSpan: 7 }]],
+      foot: Q.length ? [['Total', Q.length + ' quartos', Q.reduce((s, c) => s + Number(c.pessoas || 0), 0).toLocaleString('pt-BR'), n(tq('luz')), n(tq('agua')), n(tq('iptu')), n(tq('total'))]] : undefined,
+      columnStyles: { 0: { cellWidth: 16 }, 2: { halign: 'right', cellWidth: 17 }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right', fontStyle: 'bold' } },
+      didParseCell: h => { if (h.section !== 'body' && h.column.index >= 2) h.cell.styles.halign = 'right'; } });
+    // rodapé em todas as páginas
+    const np = doc.internal.getNumberOfPages(), H = doc.internal.pageSize.getHeight();
+    for (let i = 1; i <= np; i++) {
+      doc.setPage(i); doc.setFontSize(7.8); doc.setTextColor(110, 110, 110);
+      doc.text('Gerado em ' + d.gerado_em + ' por ' + (d.gerado_por || '-') + ' · Portal da Pensão · pensao.flowimoveis.imb.br', M, H - 8);
+      doc.text('Página ' + i + ' de ' + np, W - M, H - 8, { align: 'right' });
+    }
+    return doc;
+  }
+  async function rtImprimirRateio(im, btn) {
+    const comp = rtComp();
+    btn.disabled = true; rtDocMsg(im, 'Gerando o PDF…');
+    try {
+      const [jsPDF, d] = await Promise.all([carregaJsPdf(), ppChamar('rateio_doc', { competencia: comp, imovel: im })]);
+      const doc = rateioPdfMontar(jsPDF, d);
+      doc.save('rateio-pensao-' + im + '-' + comp.slice(0, 7) + '.pdf');
+      rtDocMsg(im, '✓ PDF gerado' + (d.rateio_status === 'fechado' ? '' : ' (rascunho: rateio ainda não fechado)'));
+    } catch (e) { console.error(e); rtDocMsg(im, 'Não gerou: ' + e.message); }
+    finally { btn.disabled = false; }
+  }
+  async function rtBaixarContas(im, btn) {
+    const comp = rtComp();
+    btn.disabled = true; rtDocMsg(im, 'Buscando as contas…');
+    try {
+      const r = await ppChamar('contas_arquivos', { competencia: comp, imovel: im });
+      const arqs = r.arquivos || [], sem = r.sem_arquivo || [];
+      const semTxt = sem.length ? ' Sem PDF: ' + sem.map(s => s.rotulo + ' (' + s.motivo + ')').join('; ') + '.' : '';
+      if (!arqs.length) { rtDocMsg(im, 'Nenhum PDF de conta nesta competência.' + semTxt); return; }
+      await carregaJs('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', () => window.JSZip);
+      const zip = new JSZip(); let ok = 0; const falhou = [];
+      for (const a of arqs) {
+        rtDocMsg(im, 'Baixando ' + (ok + 1) + ' de ' + arqs.length + '…');
+        try {
+          const res = await fetch(a.url, { credentials: 'omit' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          zip.file(a.nome, await res.blob()); ok++;
+        } catch (e) { falhou.push(a); }
+      }
+      if (ok) {
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
+        link.download = 'contas-pensao-' + im + '-' + comp.slice(0, 7) + '.zip';
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+      }
+      rtDocMsg(im, '✓ ' + ok + (ok === 1 ? ' conta' : ' contas') + ' no .zip.' + semTxt);
+      // o que não entrou no zip fica como link (vale 1 hora) — abrir janela depois de await é bloqueado pelo navegador
+      if (falhou.length) {
+        const el = document.getElementById('rtDocMsg' + im);
+        el.innerHTML += ' Não entrou no .zip (abra pelo link, vale 1 hora): ' + falhou.map(a => '<a href="' + esc(a.url) + '" target="_blank" rel="noopener">' + esc(a.rotulo) + '</a>').join(', ');
+      }
+    } catch (e) { console.error(e); rtDocMsg(im, 'Não baixou: ' + e.message); }
+    finally { btn.disabled = false; }
+  }
 
   // ── Upload do PDF da conta (Eric 13/10): o leitor preenche valor, vencimento, juros, linha e PIX ───────────
   // PDF com senha é detectado NA HORA pelo pdf.js; a senha é conferida no navegador antes de subir.
