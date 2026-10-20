@@ -643,15 +643,11 @@
     <div class="pp-aviso" id="rtPend" style="display:none;margin-top:14px"></div>
     <!-- Eric 20/10: a aba Contas organizada em sub-abas -->
     <div class="subabas" id="rtSubabas">
-      <button class="suba ativa" data-p="contas" onclick="rtSub('contas')">📎 Contas do mês <span class="aba-n" id="rtSubNContas"></span></button>
-      <button class="suba" data-p="rateio" onclick="rtSub('rateio')">🧮 Rateio</button>
+      <button class="suba ativa" data-p="rateio" onclick="rtSub('rateio')">🧮 Rateio</button>
       <button class="suba" data-p="docs" onclick="rtSub('docs')">📄 Documentos</button>
+      <button class="suba" data-p="contas" onclick="rtSub('contas')">📎 Contas do mês <span class="aba-n" id="rtSubNContas"></span></button>
     </div>
-    <div class="rt-pane ativa" data-p="contas">
-    <div class="pp-wrap" id="rtContas"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando...</div></div>
-    <div class="pp-acoes"><button class="pp-salvar" id="rtBtnContas" onclick="rtSalvarContas()">Salvar contas</button></div>
-    </div>
-    <div class="rt-pane" data-p="rateio">
+    <div class="rt-pane ativa" data-p="rateio">
       <div id="rtRateioVazio" style="padding:24px;text-align:center;color:var(--muted);font-size:13px">O rateio aparece aqui quando as contas do mês tiverem valor.</div>
     <div class="pp-wrap rt-scroll" id="rtResumo" style="margin-top:12px;display:none"></div>
     <div class="pp-wrap rt-scroll" id="rtContratos" style="margin-top:12px;display:none"></div>
@@ -668,6 +664,10 @@
       <div class="rt-doc"><div class="rt-doc-t">Pensão 210</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('210', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('210', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg210"></div></div>
       <div class="rt-doc"><div class="rt-doc-t">Pensão 222</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('222', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('222', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg222"></div></div>
     </div>
+    </div>
+    <div class="rt-pane" data-p="contas">
+    <div class="pp-wrap" id="rtContas"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando...</div></div>
+    <div class="pp-acoes"><button class="pp-salvar" id="rtBtnContas" onclick="rtSalvarContas()">Salvar contas</button></div>
     </div>
   </div>
 
@@ -1708,7 +1708,7 @@
     }
   }
   function rtSub(p) {
-    if (!['contas', 'rateio', 'docs'].includes(p)) p = 'contas';
+    if (!['contas', 'rateio', 'docs'].includes(p)) p = 'rateio';
     document.querySelectorAll('#rtSubabas .suba').forEach(b => b.classList.toggle('ativa', b.dataset.p === p));
     document.querySelectorAll('#rtSecao .rt-pane').forEach(x => x.classList.toggle('ativa', x.dataset.p === p));
     try { localStorage.setItem('rtSub', p); } catch (e) {}
