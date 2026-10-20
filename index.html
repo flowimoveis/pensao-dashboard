@@ -640,7 +640,7 @@
     <div class="pp-wrap rt-scroll" id="rtResumo" style="margin-top:12px;display:none"></div>
     <div class="pp-wrap rt-scroll" id="rtContratos" style="margin-top:12px;display:none"></div>
     <div class="label" style="margin-top:18px">Documentos do rateio · <span id="rtDocsMes"></span></div>
-    <div style="font-size:12px;color:var(--muted);margin:2px 0 0">Imprima o quadro de rateio de cada pensão (PDF) ou baixe os PDFs das contas que o compuseram (um .zip por pensão).</div>
+    <div style="font-size:12px;color:var(--muted);margin:2px 0 0">Imprima o quadro de rateio de cada pensão (PDF) ou baixe as contas que o compuseram (todas num PDF só por pensão).</div>
     <div class="rt-docs" id="rtDocs">
       <div class="rt-doc"><div class="rt-doc-t">Pensão 118</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('118', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('118', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg118"></div></div>
       <div class="rt-doc"><div class="rt-doc-t">Pensão 210</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('210', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('210', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg210"></div></div>
@@ -1887,28 +1887,32 @@
       const arqs = r.arquivos || [], sem = r.sem_arquivo || [];
       const semTxt = sem.length ? ' Sem PDF: ' + sem.map(s => s.rotulo + ' (' + s.motivo + ')').join('; ') + '.' : '';
       if (!arqs.length) { rtDocMsg(im, 'Nenhum PDF de conta nesta competência.' + semTxt); return; }
-      await carregaJs('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', () => window.JSZip);
-      const zip = new JSZip(); let ok = 0; const falhou = [];
+      // Eric 20/10: sem .zip — todas as contas num único PDF, uma depois da outra
+      await carregaJs('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', () => window.PDFLib);
+      const junto = await PDFLib.PDFDocument.create(); let ok = 0; const falhou = [];
       for (const a of arqs) {
         rtDocMsg(im, 'Baixando ' + (ok + 1) + ' de ' + arqs.length + '…');
         try {
           const res = await fetch(a.url, { credentials: 'omit' });
           if (!res.ok) throw new Error('HTTP ' + res.status);
-          zip.file(a.nome, await res.blob()); ok++;
-        } catch (e) { falhou.push(a); }
+          const bytes = await res.arrayBuffer();
+          const src = await PDFLib.PDFDocument.load(bytes, { ignoreEncryption: true });
+          const pags = await junto.copyPages(src, src.getPageIndices());
+          pags.forEach(pg => junto.addPage(pg)); ok++;
+        } catch (e) { console.error(e); falhou.push(a); }
       }
       if (ok) {
-        const blob = await zip.generateAsync({ type: 'blob' });
+        const blob = new Blob([await junto.save()], { type: 'application/pdf' });
         const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
-        link.download = 'contas-pensao-' + im + '-' + comp.slice(0, 7) + '.zip';
+        link.download = 'contas-pensao-' + im + '-' + comp.slice(0, 7) + '.pdf';
         document.body.appendChild(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(link.href), 60000);
       }
-      rtDocMsg(im, '✓ ' + ok + (ok === 1 ? ' conta' : ' contas') + ' no .zip.' + semTxt);
-      // o que não entrou no zip fica como link (vale 1 hora) — abrir janela depois de await é bloqueado pelo navegador
+      rtDocMsg(im, '✓ ' + ok + (ok === 1 ? ' conta' : ' contas') + ' num PDF só.' + semTxt);
+      // o que não entrou no PDF fica como link (vale 1 hora) — abrir janela depois de await é bloqueado pelo navegador
       if (falhou.length) {
         const el = document.getElementById('rtDocMsg' + im);
-        el.innerHTML += ' Não entrou no .zip (abra pelo link, vale 1 hora): ' + falhou.map(a => '<a href="' + esc(a.url) + '" target="_blank" rel="noopener">' + esc(a.rotulo) + '</a>').join(', ');
+        el.innerHTML += ' Não entrou no PDF (abra pelo link, vale 1 hora): ' + falhou.map(a => '<a href="' + esc(a.url) + '" target="_blank" rel="noopener">' + esc(a.rotulo) + '</a>').join(', ');
       }
     } catch (e) { console.error(e); rtDocMsg(im, 'Não baixou: ' + e.message); }
     finally { btn.disabled = false; }
