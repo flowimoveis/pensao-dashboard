@@ -370,6 +370,12 @@
   .barra-mes { display: none; align-items: center; gap: 10px; margin: -12px 0 18px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
   .barra-mes.show { display: flex; }
   .barra-mes-dica { font-weight: 300; }
+  .subabas { display: flex; gap: 6px; margin: 14px 0 14px; flex-wrap: wrap; }
+  .suba { background: var(--white); border: 1px solid var(--border); border-radius: 18px; padding: 7px 14px; font-family: 'DM Sans', sans-serif; font-size: 12.5px; font-weight: 500; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .suba:hover { color: var(--blue); }
+  .suba.ativa { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .rt-pane { display: none; }
+  .rt-pane.ativa { display: block; }
   .aba-sec { display: none; }
   .aba-sec.ativa { display: block; }
 
@@ -634,21 +640,34 @@
     </div>
     <div style="font-size:12px;color:var(--muted);margin:-6px 0 12px">Envie o PDF de cada conta: o valor, o vencimento, os juros e o PIX são lidos dele (o valor só pode ser corrigido depois do PDF). Juros e multa da conta não são rateados: saem da Reserva.</div>
     <div style="font-size:12.5px;color:var(--muted);margin:0 0 8px">Enviando como: <b id="rtQuemNome">—</b> · <a href="#" onclick="trocarQuem();return false">trocar</a></div>
+    <div class="pp-aviso" id="rtPend" style="display:none;margin-top:14px"></div>
+    <!-- Eric 20/10: a aba Contas organizada em sub-abas -->
+    <div class="subabas" id="rtSubabas">
+      <button class="suba ativa" data-p="contas" onclick="rtSub('contas')">📎 Contas do mês <span class="aba-n" id="rtSubNContas"></span></button>
+      <button class="suba" data-p="rateio" onclick="rtSub('rateio')">🧮 Rateio</button>
+      <button class="suba" data-p="docs" onclick="rtSub('docs')">📄 Documentos</button>
+    </div>
+    <div class="rt-pane ativa" data-p="contas">
     <div class="pp-wrap" id="rtContas"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando...</div></div>
     <div class="pp-acoes"><button class="pp-salvar" id="rtBtnContas" onclick="rtSalvarContas()">Salvar contas</button></div>
-    <div class="pp-aviso" id="rtPend" style="display:none;margin-top:14px"></div>
+    </div>
+    <div class="rt-pane" data-p="rateio">
+      <div id="rtRateioVazio" style="padding:24px;text-align:center;color:var(--muted);font-size:13px">O rateio aparece aqui quando as contas do mês tiverem valor.</div>
     <div class="pp-wrap rt-scroll" id="rtResumo" style="margin-top:12px;display:none"></div>
     <div class="pp-wrap rt-scroll" id="rtContratos" style="margin-top:12px;display:none"></div>
-    <div class="label" style="margin-top:18px">Documentos do rateio · <span id="rtDocsMes"></span></div>
+    <div class="pp-acoes">
+      <button class="rt-bt2" id="rtBtnReabrir" style="display:none" onclick="rtReabrir()">Reabrir rateio</button>
+      <button class="pp-salvar" id="rtBtnFechar" onclick="rtFechar()">Fechar rateio do mês</button>
+    </div>
+    </div>
+    <div class="rt-pane" data-p="docs">
+    <div class="label">Documentos do rateio · <span id="rtDocsMes"></span></div>
     <div style="font-size:12px;color:var(--muted);margin:2px 0 0">Imprima o quadro de rateio de cada pensão (PDF) ou baixe as contas que o compuseram (todas num PDF só por pensão).</div>
     <div class="rt-docs" id="rtDocs">
       <div class="rt-doc"><div class="rt-doc-t">Pensão 118</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('118', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('118', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg118"></div></div>
       <div class="rt-doc"><div class="rt-doc-t">Pensão 210</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('210', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('210', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg210"></div></div>
       <div class="rt-doc"><div class="rt-doc-t">Pensão 222</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('222', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('222', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg222"></div></div>
     </div>
-    <div class="pp-acoes">
-      <button class="rt-bt2" id="rtBtnReabrir" style="display:none" onclick="rtReabrir()">Reabrir rateio</button>
-      <button class="pp-salvar" id="rtBtnFechar" onclick="rtFechar()">Fechar rateio do mês</button>
     </div>
   </div>
 
@@ -1688,6 +1707,13 @@
       document.getElementById('rtContas').innerHTML = '<div style="padding:24px;text-align:center;color:var(--red);font-size:13px">⚠️ Não foi possível carregar as contas: ' + esc(e.message) + '</div>';
     }
   }
+  function rtSub(p) {
+    if (!['contas', 'rateio', 'docs'].includes(p)) p = 'contas';
+    document.querySelectorAll('#rtSubabas .suba').forEach(b => b.classList.toggle('ativa', b.dataset.p === p));
+    document.querySelectorAll('#rtSecao .rt-pane').forEach(x => x.classList.toggle('ativa', x.dataset.p === p));
+    try { localStorage.setItem('rtSub', p); } catch (e) {}
+  }
+  try { const _s = localStorage.getItem('rtSub'); if (_s) setTimeout(() => rtSub(_s), 0); } catch (e) {}
   function rtRender() {
     const fechado = rtContas.rateio_status === 'fechado';
     const st = document.getElementById('rtStatus');
@@ -1719,6 +1745,7 @@
 
     const p = rtRateio.pendencias, pend = document.getElementById('rtPend');
     abaBadge('abaNContas', p.contas_faltando.length);
+    abaBadge('rtSubNContas', p.contas_faltando.length);
     const np = p.pessoas_faltando.length, nc = p.contas_faltando.length;
     pend.style.display = 'block';
     if (np || nc) {
@@ -1757,6 +1784,7 @@
       });
       ct.innerHTML = t + '</tbody></table>'; ct.style.display = '';
     } else ct.style.display = 'none';
+    document.getElementById('rtRateioVazio').style.display = (rtRateio.resumo.length || rtRateio.contratos.length) ? 'none' : '';
   }
   function rtMudou(inp) {
     if (inp.dataset.k === 'valor') inp.classList.toggle('vazio', inp.value.trim() === '');
