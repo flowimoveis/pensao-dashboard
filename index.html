@@ -557,6 +557,7 @@
     <button class="aba" data-aba="pessoas" onclick="abaIr('pessoas')">👥 Pessoas <span class="aba-n" id="abaNPessoas"></span></button>
     <button class="aba" data-aba="contas" onclick="abaIr('contas')">⚡ Contas e rateio <span class="aba-n" id="abaNContas"></span></button>
     <button class="aba" data-aba="reembolsos" onclick="abaIr('reembolsos')">💸 Reembolsos <span class="aba-n" id="abaNReemb"></span></button>
+    <button class="aba" data-aba="novos" onclick="abaIr('novos')">🆕 Novos inquilinos <span class="aba-n" id="abaNNovos"></span></button>
     <button class="aba" data-aba="fechamentos" onclick="abaIr('fechamentos')">📒 Fechamentos</button>
     <button class="aba" data-aba="atalhos" onclick="abaIr('atalhos')">📋 Atalhos</button>
   </nav>
@@ -572,6 +573,51 @@
     <div class="senha-card" style="max-width:420px">
       <div id="blModalCorpo"></div>
     </div>
+  </div>
+
+  <!-- Novos inquilinos (Eric 24/10, #1152): os atalhos "Solicitar Contrato" + "Análise de Documento" viraram esta aba.
+       Análise de crédito (DiHub, R$ 20 do fundo) → aprovado → contrato (D4Sign) com os dados já digitados → assinado: contrato e 1º boleto no Atlas.
+       Tudo pelo login Google (n8n pensao-api → adm.pensao_portal_inquilinos). -->
+  <style>
+    .ni-regras { font-size: 12.5px; color: var(--muted); line-height: 1.6; background: var(--blue-lt); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+    .ni-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+    .ni-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .ni-nome { font-size: 15px; font-weight: 500; }
+    .ni-mut { font-size: 12.5px; color: var(--muted); }
+    .ni-pill { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
+    .ni-info { background: #EEF2FF; color: #3730A3; } .ni-ok { background: var(--green-lt); color: var(--green); } .ni-erro { background: #FEF2F2; color: #DC2626; } .ni-alerta { background: #FEF3C7; color: #92400E; }
+    .ni-linha { font-size: 13px; margin-top: 6px; line-height: 1.55; }
+    .ni-btns { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .ni-b { font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; border-radius: 9px; padding: 9px 16px; cursor: pointer; border: 1px solid rgba(43,58,143,0.2); background: var(--blue-lt); color: var(--blue); }
+    .ni-b.pri { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .ni-b.perigo { background: #fff; color: #DC2626; border-color: #FECACA; }
+    .ni-b[disabled] { opacity: .55; cursor: default; }
+    .ni-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+    .ni-form label { display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; }
+    .ni-form .full { grid-column: 1 / -1; }
+    .ni-form input, .ni-form select { width: 100%; font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--gray-1); box-sizing: border-box; }
+    .ni-pens { display: flex; gap: 8px; } .ni-pens button { flex: 1; padding: 9px 0; font-family: inherit; font-size: 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--gray-1); color: var(--blue); cursor: pointer; }
+    .ni-pens button.on { background: var(--blue); color: #fff; }
+    .ni-erro-msg { color: #DC2626; font-size: 13px; margin-top: 8px; min-height: 1em; }
+    .ni-passos { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; } .ni-passos span { font-size: 11px; padding: 3px 8px; border-radius: 6px; background: var(--gray-1); color: var(--muted); }
+    .ni-passos span.feito { background: var(--green-lt); color: var(--green); } .ni-passos span.agora { background: var(--blue); color: #fff; }
+    @media (max-width: 600px) { .ni-form { grid-template-columns: 1fr; } }
+  </style>
+  <div class="section aba-sec" data-aba="novos">
+    <div class="atrasos-header">
+      <div class="label">Novos inquilinos — análise de crédito e contrato</div>
+      <div class="sync-info"><div class="sync-dot loading" id="niDot"></div><span id="niSync">Carregando...</span></div>
+    </div>
+    <div class="ni-regras">
+      <b>Como funciona:</b> 1) <b>Pedir análise de crédito</b> → 2) aprovado: <b>Solicitar contrato</b> (os dados do candidato já vêm da análise) → 3) assinatura pela D4Sign,
+      links pelo WhatsApp da Pensão → 4) assinado por todos: o contrato e o 1º boleto (vence em 5 dias) saem no Atlas e o boleto vai ao grupo ADM Pensão.<br>
+      <b>Regras:</b> aprova com score 400 ou mais, sem ação de despejo ou cobrança de aluguel e sem ação criminal no TJ. Score abaixo de 400 reprova na hora.
+      O TJ é esperado o tempo que precisar; a certidão criminal, até 1 hora. Cada análise custa <b>R$ 20</b>, lançados no fundo da pensão, mesmo se reprovar.
+    </div>
+    <div class="ni-btns" style="margin:0 0 14px"><button class="ni-b pri" onclick="niNovo()">+ Pedir análise de crédito</button></div>
+    <div id="niForm"></div>
+    <div id="niLista"></div>
+    <div id="niVelhos"></div>
   </div>
 
   <!-- Fechamentos mês a mês (Eric 14/10): o mesmo fechamento do Atlas (Contábil › Fechamento), por fundo -->
@@ -592,19 +638,14 @@
         <div class="card-body"><div class="card-title">Prazos e Procedimentos</div><div class="card-desc">Documentação operacional</div></div>
         <span class="card-arrow">→</span>
       </a>
-      <a href="https://flow-forms.pages.dev/pensao/contrato" target="_blank" class="card">
-        <div class="card-icon">📝</div>
-        <div class="card-body"><div class="card-title">Solicitar Contrato</div><div class="card-desc">Abrir nova solicitação</div></div>
+      <a href="#novos" onclick="abaIr('novos'); return false" class="card">
+        <div class="card-icon">🆕</div>
+        <div class="card-body"><div class="card-title">Novos inquilinos</div><div class="card-desc">Análise de crédito e contrato numa aba só</div></div>
         <span class="card-arrow">→</span>
       </a>
       <a href="https://flow-forms.pages.dev/pensao/reembolso" target="_blank" class="card">
         <div class="card-icon">💸</div>
         <div class="card-body"><div class="card-title">Solicitar Reembolso</div><div class="card-desc">Enviar pedido de reembolso</div></div>
-        <span class="card-arrow">→</span>
-      </a>
-      <a href="https://flow-forms.pages.dev/pensao/analise-documento" target="_blank" class="card">
-        <div class="card-icon">🔍</div>
-        <div class="card-body"><div class="card-title">Análise de Documento</div><div class="card-desc">Solicitar análise</div></div>
         <span class="card-arrow">→</span>
       </a>
     </div>
@@ -2084,8 +2125,151 @@
   }
 
 
+  // ── Novos inquilinos (Eric 24/10, #1152) ────────────────────────────────────
+  let niDados = null, niTimer = null, niVerVelhos = false, niPensao = '';
+  const niEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const niBrl = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const niDia = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '';
+  const niQuando = t => t ? new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+  const niCpf = v => { const x = String(v || '').replace(/\D/g, ''); return x.length === 11 ? x.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : v; };
+  const NI_ST = { na_fila: ['Em análise', 'ni-info'], em_analise: ['Em análise', 'ni-info'], aprovado: ['Crédito aprovado', 'ni-ok'], reprovado: ['Crédito reprovado', 'ni-erro'], erro: ['Erro na análise (a equipe foi avisada)', 'ni-erro'] };
+  const NI_DOC = { pedido: 'gerando o contrato…', gerando: 'gerando o contrato…', na_fila: 'enviando para a D4Sign…', enviado: 'enviado para assinatura (links pelo WhatsApp da Pensão)',
+    assinado: 'assinado por todos ✓', travado: 'travado na conferência (a equipe foi avisada)', erro: 'erro no envio (a equipe foi avisada)', cancelado: 'cancelado', duplicada: 'duplicado (a equipe foi avisada)', gerado: 'gerado' };
+  async function niCarregar() {
+    const dot = document.getElementById('niDot'), sync = document.getElementById('niSync');
+    dot.className = 'sync-dot loading'; sync.textContent = 'Carregando...';
+    try {
+      niDados = await ppChamar('inquilinos_listar', {});
+      niRender(); dot.className = 'sync-dot ok'; sync.textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) { dot.className = 'sync-dot erro'; sync.textContent = 'Erro: ' + e.message; return; }
+    clearTimeout(niTimer);
+    const andando = (niDados.itens || []).some(x => x.status === 'pendente' && (['na_fila', 'em_analise'].includes(x.credito_status) || ['pedido', 'gerando', 'na_fila', 'enviado'].includes(x.doc_status)));
+    if (andando) niTimer = setTimeout(() => { if (document.querySelector('.aba-sec.ativa[data-aba="novos"]') && !document.querySelector('#niForm form')) niCarregar(); }, 30000);
+  }
+  function niCartao(x) {
+    const legado = x.origem === 'formulario' && !x.credito_status;
+    const [rot, cls] = NI_ST[x.credito_status] || (legado ? ['Formulário antigo (sem análise)', 'ni-alerta'] : ['—', 'ni-info']);
+    const fase = x.boleto ? 4 : x.doc_status === 'assinado' ? 3 : x.doc_status ? 2 : x.credito_status === 'aprovado' ? 1 : 0;
+    const passo = (i, t) => `<span class="${fase > i ? 'feito' : fase === i ? 'agora' : ''}">${t}</span>`;
+    let h = `<div class="ni-card"><div class="ni-top"><span class="ni-nome">${niEsc(x.nome)}</span>${x.teste ? '<span class="ni-pill ni-alerta">TESTE</span>' : ''}
+      <span class="ni-mut">Pensão ${niEsc(x.pensao)}${x.quarto ? ' · ' + niEsc(x.quarto) : ''} · CPF ${niEsc(niCpf(x.cpf))}</span>
+      <span class="ni-pill ${cls}">${rot}</span>${x.score != null ? `<b style="font-size:13px">score ${x.score}</b>` : ''}
+      ${x.status === 'recusado' && x.credito_status !== 'reprovado' ? '<span class="ni-pill ni-info">encerrado</span>' : ''}</div>`;
+    if (x.status === 'pendente' && !legado) h += `<div class="ni-passos">${passo(0, '1 Análise')}${passo(1, '2 Contrato')}${passo(2, '3 Assinatura')}${passo(3, '4 Contrato + 1º boleto')}</div>`;
+    h += `<div class="ni-linha ni-mut">${x.pedido_em ? 'Pedido ' + niQuando(x.pedido_em) + (x.pedido_por ? ' por ' + niEsc(String(x.pedido_por).replace(/^portal: /, '')) : '') + '. ' : ''}${x.concluido_em ? 'Concluída ' + niQuando(x.concluido_em) + '.' : ''}</div>`;
+    if (['na_fila', 'em_analise'].includes(x.credito_status)) h += `<div class="ni-linha ni-mut">⏳ Aguardando ${niEsc(x.aguardando || 'a DiHub')}. A tela atualiza sozinha.</div>`;
+    if ((x.motivos || []).length) h += `<div class="ni-linha" style="color:${x.credito_status === 'reprovado' ? '#DC2626' : 'inherit'}">${x.motivos.map(niEsc).join('<br>')}</div>`;
+    (x.observacoes || []).filter(Boolean).forEach(o => { h += `<div class="ni-linha ni-mut">• ${niEsc(o)}</div>`; });
+    if (x.status === 'recusado' && x.credito_status !== 'reprovado' && x.motivo) h += `<div class="ni-linha ni-mut">Motivo: ${niEsc(x.motivo)}</div>`;
+    if (x.segundo_de) h += `<div class="ni-linha ni-mut">Entrou como 2º locatário de outro contrato.</div>`;
+    if (x.doc_status) h += `<div class="ni-linha"><b>Contrato:</b> ${niEsc(NI_DOC[x.doc_status] || x.doc_status)}${x.aluguel ? ' · ' + niBrl(x.aluguel) : ''}${x.inicio ? ' · início ' + niDia(x.inicio) : ''}${x.segundo_nome ? ' · 2º locatário ' + niEsc(x.segundo_nome) : ''}</div>`;
+    if (x.contrato) h += `<div class="ni-linha"><b>Contrato no Atlas:</b> ${niEsc(x.contrato)}</div>`;
+    if (x.boleto) h += `<div class="ni-linha"><b>1º boleto:</b> ${niBrl(x.boleto.valor)} · vence ${niDia(x.boleto.vencimento)} · ${x.boleto.status === 'registrado' ? 'registrado (enviado no grupo ADM Pensão)' : 'registrando no Itaú'}</div>`;
+    if (x.credito_erro) h += `<div class="ni-linha" style="color:#DC2626">${niEsc(x.credito_erro)}</div>`;
+    if (x.doc_motivo && ['travado', 'erro', 'duplicada'].includes(x.doc_status)) h += `<div class="ni-linha" style="color:#DC2626">${niEsc(x.doc_motivo)}</div>`;
+    if (x.efetivar_erro) h += `<div class="ni-linha" style="color:#DC2626">Contrato/boleto automático parou: ${niEsc(x.efetivar_erro)}</div>`;
+    if (legado && x.status === 'pendente') h += `<div class="ni-linha ni-mut">Veio pelo formulário antigo (antes de 24/10).${x.ocupado_por ? ' ⚠️ O quarto ainda tem contrato ativo: ' + niEsc(x.ocupado_por) + '.' : ''}</div>`;
+    const eu = String(niDados.eu || ''), ehEric = /^eric/i.test(eu), ehAdm = ehEric || /^nat/i.test(eu);
+    const semScore = x.credito_status === 'em_analise' && /^decisão do gestor/.test(x.aguardando || '');
+    const podeContrato = x.credito_status === 'aprovado' && x.status === 'pendente' && !x.segundo_de && !['pedido', 'gerando', 'na_fila', 'enviado', 'assinado'].includes(x.doc_status);
+    const podeEncerrar = x.status === 'pendente' && !['gerando', 'na_fila', 'enviado', 'assinado'].includes(x.doc_status);
+    const b = [];
+    if (podeEncerrar) b.push(`<button class="ni-b perigo" onclick="niEncerrar(${x.id})">Encerrar</button>`);
+    if (x.status === 'pendente' && x.credito_status === 'erro') b.push(`<button class="ni-b" onclick="niAcao('inquilinos_refazer', {id:${x.id}})">Tentar de novo</button>`);
+    if (x.status === 'pendente' && !legado && ['travado', 'erro', 'cancelado', 'duplicada', 'gerado'].includes(x.doc_status)) b.push(`<button class="ni-b" onclick="niAcao('inquilinos_gerar_de_novo', {id:${x.id}}, 'Gerar o contrato de novo? O robô confere e envia à D4Sign.')">Gerar contrato de novo</button>`);
+    if (semScore && ehEric) b.push(`<button class="ni-b pri" onclick="niDecidir(${x.id}, 'aprovado')">Aprovar sem score</button><button class="ni-b perigo" onclick="niDecidir(${x.id}, 'reprovado')">Reprovar</button>`);
+    if (semScore && !ehEric) h += `<div class="ni-linha" style="color:#92400E">A DiHub não deu score: a decisão é do Eric.</div>`;
+    if (x.efetivar_erro && ehAdm) b.push(`<button class="ni-b" onclick="niAcao('inquilinos_efetivar', {id:${x.id}})">Criar contrato e boleto de novo</button>`);
+    if (legado && x.status === 'pendente' && !x.doc_status) b.push(`<button class="ni-b pri" onclick="niAcao('inquilinos_legado_analise', {id:${x.id}}, 'Fazer a análise de crédito? Custa R$ 20, lançados no fundo da pensão, mesmo se reprovar.')">Fazer análise de crédito</button>`);
+    if (legado && x.status === 'pendente' && x.doc_status && ehAdm) b.push(`<button class="ni-b pri" ${x.ocupado_por ? 'disabled' : ''} onclick="niAcao('inquilinos_legado_aprovar', {id:${x.id}}, 'Criar o contrato no Atlas (fluxo antigo, sem análise)?')">Aprovar e criar o contrato</button>`);
+    if (podeContrato) b.push(`<button class="ni-b pri" onclick="niContrato(${x.id})">Solicitar contrato</button>`);
+    if (b.length) h += `<div class="ni-btns">${b.join('')}</div>`;
+    return h + '</div>';
+  }
+  function niRender() {
+    const it = niDados.itens || [], pend = it.filter(x => x.status === 'pendente'), dec = it.filter(x => x.status !== 'pendente');
+    abaBadge('abaNNovos', pend.filter(x => x.credito_status === 'aprovado' && !x.doc_status && !x.segundo_de).length);
+    document.getElementById('niLista').innerHTML = pend.length ? pend.map(niCartao).join('') : '<div class="ni-mut" style="padding:8px 0 14px">Nenhum candidato em andamento.</div>';
+    document.getElementById('niVelhos').innerHTML = dec.length ? `<button class="ni-b" onclick="niVerVelhos=!niVerVelhos; niRender()">${niVerVelhos ? 'Esconder' : 'Ver'} concluídos e encerrados (${dec.length})</button>`
+      + (niVerVelhos ? '<div style="margin-top:10px">' + dec.map(niCartao).join('') + '</div>' : '') : '';
+  }
+  function niNovo() {
+    niPensao = '';
+    document.getElementById('niForm').innerHTML = `<div class="ni-card"><form onsubmit="niEnviarAnalise(event)">
+      <div class="ni-form">
+        <div class="full"><label>Pensão *</label><div class="ni-pens" id="niPens">${['118', '210', '222'].map(p => `<button type="button" onclick="niPensao='${p}'; document.querySelectorAll('#niPens button').forEach(b=>b.classList.toggle('on', b.textContent==='${p}'))">${p}</button>`).join('')}</div></div>
+        <div class="full"><label>Nome completo do candidato *</label><input id="niNome" required></div>
+        <div><label>CPF *</label><input id="niCpf" inputmode="numeric" required placeholder="000.000.000-00"></div>
+        <div><label>Nascimento *</label><input id="niNasc" type="date" required></div>
+        <div><label>RG *</label><input id="niRg" required placeholder="Somente o número"></div>
+        <div><label>Órgão emissor</label><input id="niEmissor" placeholder="SSP/SP"></div>
+        <div><label>Celular (WhatsApp) *</label><input id="niTel" inputmode="tel" required placeholder="(11) 90000-0000"></div>
+        <div><label>Estado civil</label><select id="niCivil"><option value="">—</option><option>Solteiro(a)</option><option>Casado(a)</option><option>Divorciado(a)</option><option>Viúvo(a)</option><option>União estável</option></select></div>
+        <div><label>Profissão</label><input id="niProf"></div>
+        <div><label>Nacionalidade</label><input id="niNac" value="Brasileira"></div>
+        <div class="full"><label>Observação</label><input id="niObs"></div>
+      </div>
+      <div class="ni-erro-msg" id="niMsg"></div>
+      <div class="ni-btns"><button type="button" class="ni-b" onclick="document.getElementById('niForm').innerHTML=''">Cancelar</button><button class="ni-b pri" id="niBtnAn">Pedir análise (R$ 20)</button></div>
+    </form></div>`;
+  }
+  async function niEnviarAnalise(ev) {
+    ev.preventDefault();
+    const v = id => document.getElementById(id).value.trim(), msg = document.getElementById('niMsg');
+    const d = { pensao: niPensao, nome: v('niNome'), cpf: v('niCpf'), nascimento: v('niNasc'), rg: v('niRg'), emissor: v('niEmissor'), telefone: v('niTel'),
+      civil: v('niCivil'), profissao: v('niProf'), nacionalidade: v('niNac'), observacao: v('niObs') };
+    if (!d.pensao) { msg.textContent = 'Escolha a pensão.'; return; }
+    if (!confirm(`Pedir a análise de crédito de ${d.nome}?\n\nCusta R$ 20 (DiHub), lançados no fundo da Pensão ${d.pensao}, mesmo se reprovar.`)) return;
+    const b = document.getElementById('niBtnAn'); b.disabled = true; b.textContent = 'Enviando…';
+    try { await ppChamar('inquilinos_credito', d); document.getElementById('niForm').innerHTML = ''; niCarregar(); }
+    catch (e) { msg.textContent = e.message; b.disabled = false; b.textContent = 'Pedir análise (R$ 20)'; }
+  }
+  function niContrato(id) {
+    const x = (niDados.itens || []).find(i => i.id === id); if (!x) return;
+    const qs = (niDados.quartos || []).filter(u => u.pensao === x.pensao);
+    document.getElementById('niForm').innerHTML = `<div class="ni-card"><form onsubmit="niEnviarContrato(event, ${id})">
+      <div class="ni-nome" style="margin-bottom:4px">Solicitar contrato · ${niEsc(x.nome)}</div>
+      <div class="ni-mut" style="margin-bottom:12px">Dados do candidato já vêm da análise (CPF ${niEsc(niCpf(x.cpf))}, celular ${niEsc(x.telefone)}). Vencimento mensal = dia do início. 1º aluguel pela regra do programa: mês cheio + rateio/IPTU do mês do início.</div>
+      <div class="ni-form">
+        <div class="full"><label>Quarto (Pensão ${niEsc(x.pensao)}) *</label><select id="niQuarto" required onchange="const o=this.selectedOptions[0]; if(o&&o.dataset.al&&!document.getElementById('niAlug').value) document.getElementById('niAlug').value=o.dataset.al">
+          <option value="">— escolher —</option>${qs.map(u => `<option value="${u.id}" data-al="${u.aluguel_ultimo || ''}">${niEsc(u.rotulo)}${u.livre_desde ? ' (livre a partir de ' + niDia(u.livre_desde) + ')' : ' (vago)'}</option>`).join('')}</select></div>
+        <div><label>Aluguel (R$) *</label><input id="niAlug" type="number" step="0.01" min="0" required></div>
+        <div><label>Início *</label><input id="niIni" type="date" required></div>
+        <div><label>Pessoas no quarto *</label><input id="niPes" type="number" min="1" max="20" value="1" required></div>
+        <div><label>2º locatário (opcional)</label><select id="niSeg"><option value="">— nenhum —</option>${(niDados.itens || []).filter(o => o.id !== x.id && o.pensao === x.pensao && o.credito_status === 'aprovado' && o.status === 'pendente' && !o.doc_status && o.teste === x.teste && (!o.segundo_de || o.segundo_de === x.id)).map(o => `<option value="${o.id}">${niEsc(o.nome)}</option>`).join('')}</select></div>
+        <div class="full"><label>Observação</label><input id="niObs2"></div>
+      </div>
+      <div class="ni-mut" style="margin-top:6px">2º locatário: só quem também teve a análise aprovada nesta pensão.</div>
+      <div class="ni-erro-msg" id="niMsg2"></div>
+      <div class="ni-btns"><button type="button" class="ni-b" onclick="document.getElementById('niForm').innerHTML=''">Cancelar</button><button class="ni-b pri" id="niBtnCt">Gerar contrato e enviar para assinatura</button></div>
+    </form></div>`;
+    document.getElementById('niForm').scrollIntoView({ behavior: 'smooth' });
+  }
+  async function niEnviarContrato(ev, id) {
+    ev.preventDefault();
+    const v = k => document.getElementById(k).value.trim(), msg = document.getElementById('niMsg2');
+    const d = { id, unidade_id: v('niQuarto'), aluguel: v('niAlug'), inicio: v('niIni'), pessoas: v('niPes'), segundo_id: v('niSeg'), observacao: v('niObs2') };
+    const q = document.getElementById('niQuarto').selectedOptions[0].textContent;
+    if (!confirm(`Gerar o contrato?\n\nQuarto ${q} · aluguel ${niBrl(d.aluguel)} · início ${niDia(d.inicio)} · ${d.pessoas} pessoa(s).\n\nO contrato vai para a D4Sign e os links saem pelo WhatsApp da Pensão. Assinado por todos, o Atlas cria o contrato e o 1º boleto (vence em 5 dias).`)) return;
+    const b = document.getElementById('niBtnCt'); b.disabled = true; b.textContent = 'Enviando…';
+    try { await ppChamar('inquilinos_contrato', d); document.getElementById('niForm').innerHTML = ''; niCarregar(); }
+    catch (e) { msg.textContent = e.message; b.disabled = false; b.textContent = 'Gerar contrato e enviar para assinatura'; }
+  }
+  async function niAcao(acao, dados, pergunta) {
+    if (pergunta && !confirm(pergunta)) return;
+    try { await ppChamar(acao, dados); niCarregar(); } catch (e) { alert(e.message); }
+  }
+  async function niDecidir(id, status) {
+    const motivo = prompt(`Motivo para ${status === 'aprovado' ? 'APROVAR' : 'REPROVAR'} sem score (fica registrado e vai ao grupo):`); if (!motivo || !motivo.trim()) return;
+    niAcao('inquilinos_decidir', { id, status, motivo });
+  }
+  async function niEncerrar(id) {
+    const motivo = prompt('Encerrar este candidato? Motivo (fica registrado):'); if (!motivo || !motivo.trim()) return;
+    try { await ppChamar('inquilinos_encerrar', { id, motivo }); niCarregar(); } catch (e) { alert(e.message); }
+  }
+
   // ── Abas: o portal é o lugar de DIGITAR; cada assunto numa aba ───────────────
-  const ABAS_OK = ['atrasos', 'pessoas', 'contas', 'reembolsos', 'fechamentos', 'atalhos'];
+  const ABAS_OK = ['atrasos', 'pessoas', 'contas', 'reembolsos', 'novos', 'fechamentos', 'atalhos'];
   function abaIr(a, semHash) {
     if (!ABAS_OK.includes(a)) a = 'atrasos';
     document.querySelectorAll('.aba').forEach(b => b.classList.toggle('ativa', b.dataset.aba === a));
@@ -2094,6 +2278,7 @@
     if (!semHash) history.replaceState(null, '', '#' + a);
     window.scrollTo({ top: 0 });
     if (a === 'fechamentos' && !fcDados) fcCarregar();
+    if (a === 'novos') niCarregar();
   }
   // ---------------------------------------------------------------- Boletos (Eric 15/10)
   let blDados = null, blF = 'vencidos', blAtual = null, blSim = null;
