@@ -2146,6 +2146,16 @@
     const andando = (niDados.itens || []).some(x => x.status === 'pendente' && (['na_fila', 'em_analise'].includes(x.credito_status) || ['pedido', 'gerando', 'na_fila', 'enviado'].includes(x.doc_status)));
     if (andando) niTimer = setTimeout(() => { if (document.querySelector('.aba-sec.ativa[data-aba="novos"]') && !document.querySelector('#niForm form')) niCarregar(); }, 30000);
   }
+  // #1152: quem já assinou e quem falta — vem do webhook da D4Sign gravado no banco (a tela não consulta a D4Sign)
+  const NI_PAPEL = { locador: 'locador', locatario: 'locatário', testemunha: 'testemunha', fiador: 'fiador' };
+  const niPrimeiro = n => { const p = String(n || '').trim().split(/\s+/)[0] || '?'; return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase(); };
+  function niAssinaturas(lista) {
+    const ok = lista.filter(a => a.assinado_em), falta = lista.filter(a => !a.assinado_em);
+    const tit = a => niEsc(a.nome) + ' (' + niEsc(NI_PAPEL[a.papel] || a.papel) + ')';
+    let h = '<div class="ni-linha"><b>Assinado:</b> ' + (ok.length ? ok.map(a => `<span title="${tit(a)}">${niEsc(niPrimeiro(a.nome))} ✓ <span class="ni-mut">${niQuando(a.assinado_em)}</span></span>`).join(', ') : '<span class="ni-mut">ninguém ainda</span>');
+    if (falta.length) h += ' · <b style="color:#B45309">Falta:</b> ' + falta.map(a => `<span title="${tit(a)}">${niEsc(niPrimeiro(a.nome))}</span>`).join(', ');
+    return h + '</div>';
+  }
   function niCartao(x) {
     const legado = x.origem === 'formulario' && !x.credito_status;
     const [rot, cls] = NI_ST[x.credito_status] || (legado ? ['Formulário antigo (sem análise)', 'ni-alerta'] : ['—', 'ni-info']);
@@ -2163,6 +2173,7 @@
     if (x.status === 'recusado' && x.credito_status !== 'reprovado' && x.motivo) h += `<div class="ni-linha ni-mut">Motivo: ${niEsc(x.motivo)}</div>`;
     if (x.segundo_de) h += `<div class="ni-linha ni-mut">Entrou como 2º locatário de outro contrato.</div>`;
     if (x.doc_status) h += `<div class="ni-linha"><b>Contrato:</b> ${niEsc(NI_DOC[x.doc_status] || x.doc_status)}${x.aluguel ? ' · ' + niBrl(x.aluguel) : ''}${x.inicio ? ' · início ' + niDia(x.inicio) : ''}${x.segundo_nome ? ' · 2º locatário ' + niEsc(x.segundo_nome) : ''}</div>`;
+    if ((x.assinaturas || []).length && ['enviado', 'assinado'].includes(x.doc_status)) h += niAssinaturas(x.assinaturas);
     if (x.contrato) h += `<div class="ni-linha"><b>Contrato no Atlas:</b> ${niEsc(x.contrato)}</div>`;
     if (x.boleto) h += `<div class="ni-linha"><b>1º boleto:</b> ${niBrl(x.boleto.valor)} · vence ${niDia(x.boleto.vencimento)} · ${x.boleto.status === 'registrado' ? 'registrado (enviado no grupo ADM Pensão)' : 'registrando no Itaú'}</div>`;
     if (x.credito_erro) h += `<div class="ni-linha" style="color:#DC2626">${niEsc(x.credito_erro)}</div>`;
