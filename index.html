@@ -1647,13 +1647,14 @@
   let ppSeq = 0;
   async function ppCarregar() {
     const seq = ++ppSeq;
-    const mes = document.getElementById('ppMes').value || ppMesPadrao();
+    const mes = document.getElementById('ppMes').value;   // vazio = o banco escolhe o 1º mês com rateio aberto (Eric 27/10)
     const dot = document.getElementById('ppDot');
     dot.className = 'sync-dot loading';
     document.getElementById('ppSync').textContent = 'Carregando...';
     try {
-      const dados = await ppChamar('pessoas_listar', { competencia: mes + '-01' });
+      const dados = await ppChamar('pessoas_listar', { competencia: mes ? mes + '-01' : '' });
       if (seq !== ppSeq) return;
+      if (!mes && dados.competencia) { document.getElementById('ppMes').value = String(dados.competencia).slice(0, 7); rtCarregar(); }
       ppDados = dados;
       ppRender();
       dot.className = 'sync-dot ok';
@@ -1743,7 +1744,7 @@
       toast('Não salvou: ' + e.message);
     } finally { btn.disabled = false; btn.textContent = 'Salvar'; }
   }
-  document.getElementById('ppMes').value = ppMesPadrao();
+  document.getElementById('ppMes').value = '';   // Eric 27/10: rateio fechado ⇒ abre no mês seguinte (o banco decide)
   try { document.getElementById('ppQuem').value = localStorage.getItem('pensao_quem') || ''; } catch (e) {}
   mostraQuem();
   ppCarregar();
@@ -1878,7 +1879,7 @@
   async function rtFechar() {
     if (!garanteQuem()) return;
     if (!confirm('Fechar o rateio de ' + ppNomeMes(rtComp().slice(0, 7)) + '? Os boletos do mês vão usar estes valores.')) return;
-    try { await ppChamar('rateio_fechar', { competencia: rtComp() }); toast('Rateio fechado'); }
+    try { await ppChamar('rateio_fechar', { competencia: rtComp() }); toast('Rateio fechado — abrindo o mês seguinte'); document.getElementById('ppMes').value = ''; await ppCarregar(); return; }
     catch (e) { toast('Não fechou: ' + e.message); }
     await rtCarregar();
   }
@@ -1889,7 +1890,7 @@
     catch (e) { toast('Não reabriu: ' + e.message); }
     await rtCarregar();
   }
-  rtCarregar();
+  if (document.getElementById('ppMes').value) rtCarregar();   // sem mês, o ppCarregar escolhe o 1º mês aberto e chama
 
   // ── Documentos do rateio (Eric 20/10/2026): imprimir o quadro de rateio por pensão (PDF) e baixar as contas que o compuseram ──
   // Dados: ação 'rateio_doc' (só leitura). Contas: ação 'contas_arquivos' → links assinados do worker de mídia, válidos por 1 hora.
