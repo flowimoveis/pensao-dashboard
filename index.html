@@ -1274,7 +1274,9 @@
         const at = await ppChamar('boletos_abertos', {});
         (at.itens || []).filter(b => b.origem === 'itau').forEach(b => {
           const d = { id_superlogica: null, nome_cliente: b.locatario, imovel: b.rotulo, vencimento: b.vencimento, valor: b.valor, valor_atualizado: b.valor,
-                      dias_atraso: b.dias_atraso, link_boleto_pdf: b.segunda_via || '', link_boleto: '', pix_qrcode: b.pix || '', _origem: 'itau', _id: b.id };
+                      dias_atraso: b.dias_atraso, link_boleto_pdf: b.segunda_via || '', link_boleto: '', pix_qrcode: b.pix || '', _origem: 'itau', _id: b.id,
+                      // 27/10: telefone do mesmo cadastro da régua (antes ficava 'sem telefone' em todo boleto do Atlas)
+                      id_contrato: b.id_contrato || null, telefone: b.telefone || '', wpp_status: b.wpp_status || null, telefone_origem: b.telefone_origem || null };
           todos.push({ ...d, _status: classificar(d) });
         });
       } catch (e) { console.warn('boletos do Atlas não carregaram', e); }
