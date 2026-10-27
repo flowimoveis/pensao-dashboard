@@ -2567,7 +2567,7 @@
       ${r.calculo && r.calculo.fechado ? '<span class="fc-tag ok" style="font-size:11px">mês já fechado</span>' : ''}</div>`;
     h += `<div class="fc-sal2"><div><div class="r">Saldo atual</div><div class="v">${fcBrl(r.saldo_atual)}</div></div>
       <div><div class="r">Saldo projetado · ${fcEsc(fcMes(r.competencia))}</div><div class="v" style="color:${Number(r.saldo_projetado) < 0 ? '#B42318' : 'inherit'}">${fcBrl(r.saldo_projetado)}</div></div></div>
-      <div class="fc-form">Projetado = saldo atual ${fcBrl(r.saldo_atual)} + a receber do fundo nos boletos do mês em aberto ${fcBrl(r.a_receber)} − contas a pagar ${fcBrl(r.contas_a_pagar)}.</div>`;
+      <div class="fc-form">Projetado = saldo atual ${fcBrl(r.saldo_atual)} + a receber do fundo nos boletos do mês em aberto ${fcBrl(r.a_receber)} − contas a pagar ${fcBrl(r.contas_a_pagar)} (inclui ${fcBrl(r.contas_estimadas || 0)} de contas ESTIMADAS pela última fatura, que somem quando a fatura real chega, e ${fcBrl(r.parceira_provisao || 0)} de provisão da parceira).</div>`;
     h += '<div class="fc-t">Contas e despesas do fundo</div><div class="fc-2col"><div>'
       + L('<b>Pagas</b>', r.contas_pagas, 'f') + lista(r.contas_pagas_det, c => L(fcEsc(c.descricao) + ` <span style="color:var(--muted)">${fcDia(c.data)}</span>`, c.valor, 'i'), 'nenhuma paga no mês')
       + '</div><div>' + L('<b>Falta pagar</b>', r.contas_a_pagar, 'f') + lista(r.contas_a_pagar_det, c => L(fcEsc(c.descricao) + ` <span class="${c.atrasada ? 'fc-atr' : ''}" style="${c.atrasada ? '' : 'color:var(--muted)'}">vence ${fcDia(c.vencimento)}</span>`, c.valor, 'i'), 'nada a pagar')
