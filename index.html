@@ -980,7 +980,8 @@
     const temPix    = d.pix_qrcode  && d.pix_qrcode.length  > 5;
     const pixEsc    = temPix ? d.pix_qrcode.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
     const k = todos.indexOf(d);
-    const b = Number(d.dias_atraso) > 0
+    // 27/10: vencido pela DATA (mesma regra do selo 'Em atraso'); o dias_atraso do cadastro da SL só atualiza na varredura diária
+    const b = (d._status === 'EM ATRASO' || Number(d.dias_atraso) > 0)
       ? '<button class="btn-action btn-boleto" title="Vencido: reemitir com juros e multa ou abonado" onclick="blAbrirLinha('+k+')">🧾 2ª Via</button>'
       : alvo
         ? '<a href="'+alvo+'" target="_blank" title="'+dica+'" class="btn-action btn-boleto">🧾 2ª Via</a>'
