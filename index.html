@@ -2516,8 +2516,8 @@
     if (f.previa && !f.previa.fechado) meses.push({ c: f.previa, tag: 'Prévia (mês em andamento)', ok: false, previa: true });
     (f.fechados || []).forEach(x => meses.push({ c: x.detalhe, tag: 'Fechado em ' + new Date(x.fechado_em).toLocaleDateString('pt-BR'), ok: true }));
     document.getElementById('fcLista').innerHTML = meses.length ? meses.map((m, k) => `<div class="fc-mes ${k === 0 ? 'aberto' : ''}">
-        <div class="fc-cab" onclick="this.parentElement.classList.toggle('aberto')"><b>${fcEsc(fcMes(m.c.competencia))}</b>
-          <span><span class="fc-tag ${m.ok ? 'ok' : ''}">${fcEsc(m.tag)}</span> &nbsp;saldo <b>${fcBrl(m.c.saldo)}</b></span></div>
+        <div class="fc-cab" onclick="this.parentElement.classList.toggle('aberto')"><b ${m.previa ? 'id="fcPrevMes"' : ''}>${fcEsc(fcMes(m.c.competencia))}</b>
+          <span><span class="fc-tag ${m.ok ? 'ok' : ''}">${fcEsc(m.previa ? 'Prévia do fechamento' : m.tag)}</span> &nbsp;<span ${m.previa ? 'id="fcPrevSaldo"' : ''}>saldo <b>${fcBrl(m.c.saldo)}</b></span></span></div>
         <div class="fc-corpo">${m.previa ? '<div id="fcPrev">Carregando a prévia…</div>' : fcCorpo(m.c)}</div></div>`).join('')
       : '<div style="color:var(--muted);font-size:13px">Nenhum fechamento ainda: o primeiro é o de novembro/2026, no último dia do mês.</div>';
     if (meses.length && meses[0].previa) fcPrevia(f.id, fcPrevComp || meses[0].c.competencia);
@@ -2532,16 +2532,25 @@
     if (el()) el().innerHTML = '<div style="color:var(--muted);font-size:13px">Carregando a prévia…</div>';
     try {
       const r = await ppChamar('fechamento_previa', { fundo, competencia: fcPrevComp });
-      if (seq === fcPrevSeq && el()) el().innerHTML = fcPreviaHtml(r, fundo);
+      if (seq === fcPrevSeq && el()) {
+        el().innerHTML = fcPreviaHtml(r, fundo);
+        const mm = document.getElementById('fcPrevMes'), ss = document.getElementById('fcPrevSaldo');
+        if (mm) mm.textContent = fcMes(r.competencia);
+        if (ss) ss.innerHTML = 'projetado <b>' + fcBrl(r.saldo_projetado) + '</b>';
+      }
     } catch (e) { if (seq === fcPrevSeq && el()) el().innerHTML = `<div style="color:#B42318;font-size:13px">Prévia: ${fcEsc(e.message)}</div>` + fcCorpo((fcDados.fundos.find(x => x.id === fundo) || {}).previa || {}); }
   }
   function fcPreviaHtml(r, fundo) {
     const L = (l, v, cls, extra) => `<div class="fc-l ${cls || ''}"><span>${l}</span><span>${v == null ? '' : fcBrl(v)}${extra || ''}</span></div>`;
     const vazio = t => `<div class="fc-l i" style="color:var(--muted)">${t}</div>`;
     const lista = (arr, f, t) => (arr || []).length ? arr.map(f).join('') : vazio(t);
-    const hoje = blHoje().slice(0, 7) + '-01';
-    const meses = [fcMesMais(hoje, 0), fcMesMais(hoje, 1)];
-    let h = `<div class="fc-meses">${meses.map((m, k) => `<button class="${m === String(r.competencia).slice(0, 10) ? 'ativo' : ''}" onclick="fcPrevia(${fundo}, '${m}')">${k ? 'Próximo mês' : 'Mês atual'} · ${fcEsc(fcMes(m))}</button>`).join('')}</div>`;
+    // um mês por vez, setas para correr os meses (Eric 27/10); começa no mês atual
+    const c = String(r.competencia).slice(0, 10), atual = blHoje().slice(0, 7) + '-01';
+    let h = `<div class="fc-meses" style="align-items:center"><button title="Mês anterior" onclick="fcPrevia(${fundo}, '${fcMesMais(c, -1)}')">‹</button>
+      <b style="font-size:14px;min-width:150px;text-align:center">${fcEsc(fcMes(c))}</b>
+      <button title="Próximo mês" onclick="fcPrevia(${fundo}, '${fcMesMais(c, 1)}')">›</button>
+      ${c !== atual ? `<button onclick="fcPrevia(${fundo}, '${atual}')">voltar ao mês atual</button>` : '<span style="font-size:12px;color:var(--muted)">mês atual</span>'}
+      ${r.calculo && r.calculo.fechado ? '<span class="fc-tag ok" style="font-size:11px">mês já fechado</span>' : ''}</div>`;
     h += `<div class="fc-sal2"><div><div class="r">Saldo atual</div><div class="v">${fcBrl(r.saldo_atual)}</div></div>
       <div><div class="r">Saldo projetado · ${fcEsc(fcMes(r.competencia))}</div><div class="v" style="color:${Number(r.saldo_projetado) < 0 ? '#B42318' : 'inherit'}">${fcBrl(r.saldo_projetado)}</div></div></div>
       <div class="fc-form">Projetado = saldo atual ${fcBrl(r.saldo_atual)} + a receber do fundo nos boletos do mês em aberto ${fcBrl(r.a_receber)} − contas a pagar ${fcBrl(r.contas_a_pagar)}.</div>`;
