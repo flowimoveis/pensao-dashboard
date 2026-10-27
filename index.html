@@ -662,7 +662,7 @@
         <div class="card-body"><div class="card-title">Novos inquilinos</div><div class="card-desc">Análise de crédito e contrato numa aba só</div></div>
         <span class="card-arrow">→</span>
       </a>
-      <a href="https://flow-forms.pages.dev/pensao/reembolso" target="_blank" class="card">
+      <a href="#" onclick="rbAbrirForm(event)" class="card">
         <div class="card-icon">💸</div>
         <div class="card-body"><div class="card-title">Solicitar Reembolso</div><div class="card-desc">Enviar pedido de reembolso</div></div>
         <span class="card-arrow">→</span>
@@ -2390,6 +2390,18 @@
   async function niEncerrar(id) {
     const motivo = prompt('Encerrar este candidato? Motivo (fica registrado):'); if (!motivo || !motivo.trim()) return;
     try { await ppChamar('inquilinos_encerrar', { id, motivo }); niCarregar(); } catch (e) { alert(e.message); }
+  }
+
+  // Formulário de reembolso só pelo portal (Eric 27/10): o pensao-api emite um token de 2 h para o e-mail logado;
+  // o formulário trava o e-mail nele e o receptor recusa e-mail diferente. O token vai no #fragmento (não sai em log nem em Referer).
+  async function rbAbrirForm(ev) {
+    ev.preventDefault();
+    const w = window.open('', '_blank');   // abre já no clique (bloqueador de pop-up); o endereço entra quando o token chegar
+    try {
+      const r = await ppChamar('reembolso_token', {});
+      const url = 'https://flow-forms.pages.dev/pensao/reembolso#t=' + encodeURIComponent(r.token);
+      if (w) { try { w.opener = null; } catch (e) { /* ok */ } w.location.href = url; } else location.href = url;
+    } catch (e) { if (w) w.close(); alert('Não consegui abrir o formulário: ' + e.message); }
   }
 
   // ── Abas: o portal é o lugar de DIGITAR; cada assunto numa aba ───────────────
