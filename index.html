@@ -2544,6 +2544,17 @@
     const L = (l, v, cls, extra) => `<div class="fc-l ${cls || ''}"><span>${l}</span><span>${v == null ? '' : fcBrl(v)}${extra || ''}</span></div>`;
     const vazio = t => `<div class="fc-l i" style="color:var(--muted)">${t}</div>`;
     const lista = (arr, f, t) => (arr || []).length ? arr.map(f).join('') : vazio(t);
+    // Eric 27/10: repasses agrupados por dono — uma linha por proprietário com o total do mês; clicar abre os repasses dele
+    const porDono = (arr, pref, t) => {
+      if (!(arr || []).length) return vazio(t);
+      const g = {};
+      arr.forEach(x => { const k = x.nome || '—'; (g[k] = g[k] || []).push(x); });
+      return Object.keys(g).sort((a, b) => a.localeCompare(b, 'pt-BR')).map(k => {
+        const it = g[k], tot = it.reduce((a, x) => a + Number(x.valor || 0), 0);
+        const det = it.map(x => L('<span style="color:var(--muted);padding-left:14px">' + pref + fcDia(x.data) + '</span>', x.valor, 'i')).join('');
+        return `<details class="fc-dono"><summary style="cursor:pointer;list-style:none">${L(fcEsc(k) + ` <span style="color:var(--muted);font-size:11.5px">(${it.length} ${it.length === 1 ? 'repasse' : 'repasses'}) ▾</span>`, tot, 'i')}</summary>${det}</details>`;
+      }).join('');
+    };
     // um mês por vez, setas para correr os meses (Eric 27/10); começa no mês atual
     const c = String(r.competencia).slice(0, 10), atual = blHoje().slice(0, 7) + '-01';
     let h = `<div class="fc-meses" style="align-items:center"><button title="Mês anterior" onclick="fcPrevia(${fundo}, '${fcMesMais(c, -1)}')">‹</button>
@@ -2559,8 +2570,8 @@
       + '</div><div>' + L('<b>Falta pagar</b>', r.contas_a_pagar, 'f') + lista(r.contas_a_pagar_det, c => L(fcEsc(c.descricao) + ` <span class="${c.atrasada ? 'fc-atr' : ''}" style="${c.atrasada ? '' : 'color:var(--muted)'}">vence ${fcDia(c.vencimento)}</span>`, c.valor, 'i'), 'nada a pagar')
       + '</div></div>';
     h += '<div class="fc-t">Repasses aos donos (boletos do mês)</div><div class="fc-2col"><div>'
-      + L('<b>Pagos</b>', r.repasses_pagos, 'f') + lista(r.repasses_pagos_det, x => L(fcEsc(x.nome) + ` <span style="color:var(--muted)">${fcDia(x.data)}</span>`, x.valor, 'i'), 'nenhum pago no mês')
-      + '</div><div>' + L('<b>Falta pagar</b>', r.repasses_a_pagar, 'f') + lista(r.repasses_a_pagar_det, x => L(fcEsc(x.nome) + ` <span style="color:var(--muted)">prev. ${fcDia(x.data)}</span>`, x.valor, 'i'), 'nenhum gerado a pagar')
+      + L('<b>Pagos</b>', r.repasses_pagos, 'f') + porDono(r.repasses_pagos_det, '', 'nenhum pago no mês')
+      + '</div><div>' + L('<b>Falta pagar</b>', r.repasses_a_pagar, 'f') + porDono(r.repasses_a_pagar_det, 'prev. ', 'nenhum gerado a pagar')
       + (Number(r.repasses_previstos) ? L('<span style="color:var(--muted)">+ quando os boletos em aberto forem pagos (estimado)</span>', r.repasses_previstos, 'i') : '')
       + '</div></div>';
     h += '<div class="fc-t">Boletos do mês</div>' + L('Recebido', r.recebido, 'i')
