@@ -57,6 +57,16 @@
   .fc-l { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 3px 0; } .fc-l.f { font-weight: 700; } .fc-l.i { padding-left: 14px; }
   .fc-t { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 2px; }
   .fc-saldo { border-top: 2px solid var(--text); margin-top: 8px; padding-top: 4px; }
+  /* prévia do fechamento (Eric 27/10): pago × a pagar + saldo atual e projetado */
+  .fc-sal2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0 4px; }
+  .fc-sal2 > div { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .fc-sal2 .r { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; } .fc-sal2 .v { font-size: 19px; font-weight: 700; margin-top: 2px; }
+  .fc-form { font-size: 12px; color: var(--muted); margin: 4px 0 6px; line-height: 1.45; }
+  .fc-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; } .fc-2col .fc-l span:first-child { min-width: 0; overflow-wrap: anywhere; }
+  .fc-meses { display: flex; gap: 6px; margin: 10px 0 0; } .fc-meses button { border: 1px solid var(--border); background: var(--white); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12px; cursor: pointer; color: var(--muted); }
+  .fc-meses button.ativo { border-color: #2B3A8F; color: #2B3A8F; background: #EEF2FF; font-weight: 600; }
+  .fc-atr { color: #B42318; }
+  @media (max-width: 600px) { .fc-2col, .fc-sal2 { grid-template-columns: 1fr; } }
   .card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; display: flex; align-items: center; gap: 14px; text-decoration: none; color: var(--text); transition: box-shadow .18s, border-color .18s, transform .18s; animation: fadeUp .3s both; }
   .card:hover { box-shadow: var(--shadow-h); border-color: rgba(43,58,143,0.22); transform: translateY(-2px); }
   .card-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--blue-lt); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
@@ -493,6 +503,11 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Novos inquilinos (27/10): cancelar / reenviar / copiar link do contrato emitido -->
+<div class="modal-bg" id="niModal" onclick="if(event.target===this)niModalFechar()">
+  <div class="modal" style="max-width:440px"><div id="niModalCorpo"></div></div>
+</div>
+
 <div class="modal-bg" id="rbModal" onclick="if(event.target===this)rbFechar()">
   <div class="modal">
     <div class="modal-title" id="rbModalTitulo">Marcar como pago</div>
@@ -601,6 +616,10 @@
     .ni-erro-msg { color: #DC2626; font-size: 13px; margin-top: 8px; min-height: 1em; }
     .ni-passos { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; } .ni-passos span { font-size: 11px; padding: 3px 8px; border-radius: 6px; background: var(--gray-1); color: var(--muted); }
     .ni-passos span.feito { background: var(--green-lt); color: var(--green); } .ni-passos span.agora { background: var(--blue); color: #fff; }
+    .ni-parte { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .ni-parte:last-child { border-bottom: none; } .ni-parte .q { flex: 1; min-width: 0; }
+    .ni-hist { margin-top: 8px; font-size: 12.5px; } .ni-hist summary { cursor: pointer; color: var(--muted); }
+    .ni-hist div { color: var(--muted); margin: 4px 0 0 4px; line-height: 1.45; }
     @media (max-width: 600px) { .ni-form { grid-template-columns: 1fr; } }
   </style>
   <div class="section aba-sec" data-aba="novos">
@@ -2194,8 +2213,102 @@
     if (legado && x.status === 'pendente' && !x.doc_status) b.push(`<button class="ni-b pri" onclick="niAcao('inquilinos_legado_analise', {id:${x.id}}, 'Fazer a análise de crédito? Custa R$ 20, lançados no fundo da pensão, mesmo se reprovar.')">Fazer análise de crédito</button>`);
     if (legado && x.status === 'pendente' && x.doc_status && ehAdm) b.push(`<button class="ni-b pri" ${x.ocupado_por ? 'disabled' : ''} onclick="niAcao('inquilinos_legado_aprovar', {id:${x.id}}, 'Criar o contrato no Atlas (fluxo antigo, sem análise)?')">Aprovar e criar o contrato</button>`);
     if (podeContrato) b.push(`<button class="ni-b pri" onclick="niContrato(${x.id})">Solicitar contrato</button>`);
+    // 27/10: contrato emitido — cancelar (fila oficial da D4Sign), reenviar (mesmo link, pelo WhatsApp da Pensão, sem gastar D4Sign) e copiar link
+    if (x.doc_status === 'enviado') b.push(`<button class="ni-b" onclick="niReenviar(${x.id})">Reenviar para assinatura</button><button class="ni-b" onclick="niLinks(${x.id})">Copiar link de assinatura</button>`);
+    if (['pedido', 'gerado', 'travado', 'erro', 'duplicada', 'na_fila', 'enviado'].includes(x.doc_status)) b.push(`<button class="ni-b perigo" onclick="niCancelar(${x.id})">Cancelar o contrato</button>`);
+    if (x.doc_status === 'cancelado' && x.cancelado_em) h += `<div class="ni-linha" style="color:#B45309">Contrato cancelado ${niQuando(x.cancelado_em)} por ${niEsc(String(x.cancelado_por || '').replace(/^portal: /, ''))}${x.cancelado_motivo ? ' — ' + niEsc(x.cancelado_motivo) : ''}</div>`;
     if (b.length) h += `<div class="ni-btns">${b.join('')}</div>`;
+    if ((x.historico || []).length) h += `<details class="ni-hist"><summary>Histórico do contrato (${x.historico.length})</summary>${x.historico.map(niHist).join('')}</details>`;
     return h + '</div>';
+  }
+  function niHist(e) {
+    const d = e.detalhe || {}, quem = niEsc(String(e.por || '').replace(/^portal: /, ''));
+    const nomes = l => (l || []).map(p => niEsc(niPrimeiro(p.nome)) + ' (' + niEsc(NI_PAPEL[p.papel] || p.papel) + ')').join(', ');
+    const t = e.tipo === 'contrato_cancelado' ? `<b>Cancelado</b>: ${niEsc(d.motivo || '')} · ${niEsc(d.d4sign || '')}`
+      : e.tipo === 'assinatura_reenviada' ? `<b>Reenviado</b> para ${nomes(d.para)}${(d.pulados || []).length ? ' · não reenviado: ' + d.pulados.map(p => niEsc(niPrimeiro(p.nome)) + ' (' + niEsc(p.motivo) + ')').join(', ') : ''}`
+      : e.tipo === 'link_copiado' ? `<b>Link copiado</b> de ${nomes([d])}` : niEsc(e.tipo);
+    return `<div>${niQuando(e.em)} · ${quem} · ${t}</div>`;
+  }
+  // ── botões do contrato emitido (Eric 27/10) ──
+  function niModalAbrir(html) { document.getElementById('niModalCorpo').innerHTML = html; document.getElementById('niModal').classList.add('show'); }
+  function niModalFechar() { document.getElementById('niModal').classList.remove('show'); }
+  function niCancelar(id) {
+    const x = (niDados.itens || []).find(i => i.id === id); if (!x) return;
+    niModalAbrir(`<div class="modal-title">Cancelar o contrato · ${niEsc(x.nome)}</div>
+      <div class="modal-sub">${x.doc_status === 'enviado' ? 'O documento é cancelado na D4Sign (pela fila do robô, em até 10 min) e os links param de valer.' : 'O contrato ainda não foi para assinatura: o pedido é cancelado sem ir à D4Sign.'}
+        Os avisos de WhatsApp que ainda não saíram são cancelados. Depois dá para gerar de novo ou encerrar o candidato.</div>
+      <label class="modal-label" for="niCanMot">Motivo (fica no histórico)</label>
+      <input id="niCanMot" class="modal-input" maxlength="300" oninput="niCanOk()">
+      <label class="modal-label" for="niCanConf">Para confirmar, digite <b>cancelar</b></label>
+      <input id="niCanConf" class="modal-input" autocomplete="off" oninput="niCanOk()">
+      <div class="ni-erro-msg" id="niCanMsg"></div>
+      <div class="modal-btns"><button class="btn-modal btn-cancel" onclick="niModalFechar()">Voltar</button>
+        <button class="btn-modal btn-ok" id="niCanBtn" disabled style="background:#DC2626" onclick="niCancelarEnviar(${id})">Cancelar o contrato</button></div>`);
+    setTimeout(() => document.getElementById('niCanMot').focus(), 50);
+  }
+  function niCanOk() {
+    document.getElementById('niCanBtn').disabled = !(document.getElementById('niCanConf').value.trim().toLowerCase() === 'cancelar' && document.getElementById('niCanMot').value.trim().length >= 5);
+  }
+  async function niCancelarEnviar(id) {
+    const btn = document.getElementById('niCanBtn'), msg = document.getElementById('niCanMsg');
+    btn.disabled = true; btn.textContent = 'Cancelando…';
+    try {
+      const r = await ppChamar('inquilinos_cancelar_contrato', { id, motivo: document.getElementById('niCanMot').value.trim(), confirmacao: document.getElementById('niCanConf').value.trim() });
+      niModalAbrir(`<div class="modal-title">Contrato cancelado</div><div class="modal-sub">${niEsc(r.d4sign)}${r.avisos_cancelados ? ' · ' + r.avisos_cancelados + ' aviso(s) de WhatsApp cancelado(s)' : ''}.</div>
+        <div class="modal-btns"><button class="btn-modal btn-ok" onclick="niModalFechar()">OK</button></div>`);
+      niCarregar();
+    } catch (e) { msg.textContent = e.message; btn.textContent = 'Cancelar o contrato'; niCanOk(); }
+  }
+  async function niPartes(id) {
+    niModalAbrir('<div class="modal-sub" style="margin:0">Carregando quem assina…</div>');
+    try { return (await ppChamar('inquilinos_partes', { id })).partes || []; }
+    catch (e) { niModalAbrir(`<div class="ni-erro-msg">${niEsc(e.message)}</div><div class="modal-btns"><button class="btn-modal btn-cancel" onclick="niModalFechar()">Fechar</button></div>`); return null; }
+  }
+  const niPapelTit = p => niEsc(NI_PAPEL[p.papel] || p.papel);
+  async function niReenviar(id) {
+    const x = (niDados.itens || []).find(i => i.id === id); const ps = await niPartes(id); if (!ps) return;
+    niModalAbrir(`<div class="modal-title">Reenviar para assinatura · ${niEsc(x ? x.nome : '')}</div>
+      <div class="modal-sub">Manda de novo o mesmo link e código pelo WhatsApp da Pensão (sai em até 2 min, das 8h às 20h). Não gasta envio na D4Sign.</div>
+      ${ps.map(p => { const trava = p.assinado_em ? 'já assinou' : p.reenvio_pendente ? 'reenvio na fila' : !p.tem_link ? 'sem link' : '';
+        return `<label class="ni-parte"><input type="checkbox" class="niReCk" value="${p.aviso_id}" ${trava ? 'disabled' : ''}>
+          <span class="q"><b>${niEsc(p.nome)}</b> <span class="ni-mut">· ${niPapelTit(p)} ${p.telefone ? '· ' + niEsc(p.telefone) : ''}</span><br>
+          <span class="ni-mut">${trava ? trava : p.ultimo_envio ? 'último envio ' + niQuando(p.ultimo_envio) : 'ainda não enviado'}</span></span></label>`; }).join('') || '<div class="ni-mut">Nenhum signatário com link.</div>'}
+      <div class="ni-erro-msg" id="niReMsg"></div>
+      <div class="modal-btns"><button class="btn-modal btn-cancel" onclick="niModalFechar()">Voltar</button>
+        <button class="btn-modal btn-ok" id="niReBtn" onclick="niReenviarEnviar(${id})">Reenviar</button></div>`);
+  }
+  async function niReenviarEnviar(id) {
+    const ids = [...document.querySelectorAll('.niReCk:checked')].map(c => Number(c.value)), msg = document.getElementById('niReMsg'), btn = document.getElementById('niReBtn');
+    if (!ids.length) { msg.textContent = 'Escolha para quem reenviar.'; return; }
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    try {
+      const r = await ppChamar('inquilinos_reenviar', { id, avisos: ids });
+      niModalAbrir(`<div class="modal-title">Reenvio na fila</div><div class="modal-sub">Vai pelo WhatsApp da Pensão em até 2 minutos (das 8h às 20h) para: ${(r.reenviados || []).map(p => niEsc(p.nome) + ' (' + niPapelTit(p) + ')').join(', ')}.
+        ${(r.pulados || []).length ? '<br>Não reenviado: ' + r.pulados.map(p => niEsc(p.nome) + ' (' + niEsc(p.motivo) + ')').join(', ') : ''}</div>
+        <div class="modal-btns"><button class="btn-modal btn-ok" onclick="niModalFechar()">OK</button></div>`);
+      niCarregar();
+    } catch (e) { msg.textContent = e.message; btn.disabled = false; btn.textContent = 'Reenviar'; }
+  }
+  async function niLinks(id) {
+    const x = (niDados.itens || []).find(i => i.id === id); const ps = await niPartes(id); if (!ps) return;
+    niModalAbrir(`<div class="modal-title">Copiar link de assinatura · ${niEsc(x ? x.nome : '')}</div>
+      <div class="modal-sub">É o link individual que a pessoa usa para assinar (com o código de acesso). Mande só para ela.</div>
+      ${ps.map(p => `<div class="ni-parte"><span class="q"><b>${niEsc(p.nome)}</b> <span class="ni-mut">· ${niPapelTit(p)}${p.assinado_em ? ' · já assinou ✓' : ''}</span>
+          <div id="niLk${p.aviso_id}" class="ni-mut"></div></span>
+        <button class="ni-b" ${p.tem_link ? '' : 'disabled'} onclick="niCopiar(${id}, ${p.aviso_id}, this)">Copiar</button></div>`).join('') || '<div class="ni-mut">Nenhum signatário com link.</div>'}
+      <div class="modal-btns" style="margin-top:12px"><button class="btn-modal btn-cancel" onclick="niModalFechar()">Fechar</button></div>`);
+  }
+  async function niCopiar(id, aviso, btn) {
+    const out = document.getElementById('niLk' + aviso); btn.disabled = true;
+    try {
+      const r = await ppChamar('inquilinos_link', { id, aviso_id: aviso });
+      let ok = false; try { await navigator.clipboard.writeText(r.link); ok = true; } catch (e) { ok = false; }
+      out.innerHTML = (ok ? '<span style="color:var(--green)">Link copiado ✓</span>' : 'Copie o link abaixo:') + ` · código de acesso <b>${niEsc(r.codigo || '')}</b>`
+        + (ok ? '' : `<input class="modal-input" style="margin:6px 0 0" readonly value="${niEsc(r.link)}" onfocus="this.select()">`);
+      if (!ok) { const i = out.querySelector('input'); i.focus(); i.select(); }
+      btn.textContent = 'Copiar de novo';
+    } catch (e) { out.innerHTML = `<span style="color:#DC2626">${niEsc(e.message)}</span>`; }
+    btn.disabled = false;
   }
   function niRender() {
     const it = niDados.itens || [], pend = it.filter(x => x.status === 'pendente'), dec = it.filter(x => x.status !== 'pendente');
@@ -2388,13 +2501,53 @@
     document.getElementById('fcFundos').innerHTML = fs.map(f => `<button class="${f.id === fcFundo ? 'ativo' : ''}" onclick="fcFundo=${f.id};fcRender()">${fcEsc(f.nome)}</button>`).join('');
     const f = fs.find(x => x.id === fcFundo); if (!f) { document.getElementById('fcLista').innerHTML = ''; return; }
     const meses = [];
-    if (f.previa && !f.previa.fechado) meses.push({ c: f.previa, tag: 'Prévia (mês em andamento)', ok: false });
+    if (f.previa && !f.previa.fechado) meses.push({ c: f.previa, tag: 'Prévia (mês em andamento)', ok: false, previa: true });
     (f.fechados || []).forEach(x => meses.push({ c: x.detalhe, tag: 'Fechado em ' + new Date(x.fechado_em).toLocaleDateString('pt-BR'), ok: true }));
     document.getElementById('fcLista').innerHTML = meses.length ? meses.map((m, k) => `<div class="fc-mes ${k === 0 ? 'aberto' : ''}">
         <div class="fc-cab" onclick="this.parentElement.classList.toggle('aberto')"><b>${fcEsc(fcMes(m.c.competencia))}</b>
           <span><span class="fc-tag ${m.ok ? 'ok' : ''}">${fcEsc(m.tag)}</span> &nbsp;saldo <b>${fcBrl(m.c.saldo)}</b></span></div>
-        <div class="fc-corpo">${fcCorpo(m.c)}</div></div>`).join('')
+        <div class="fc-corpo">${m.previa ? '<div id="fcPrev">Carregando a prévia…</div>' : fcCorpo(m.c)}</div></div>`).join('')
       : '<div style="color:var(--muted);font-size:13px">Nenhum fechamento ainda: o primeiro é o de novembro/2026, no último dia do mês.</div>';
+    if (meses.length && meses[0].previa) fcPrevia(f.id, fcPrevComp || meses[0].c.competencia);
+  }
+  // ── Prévia do fechamento (Eric 27/10): o que foi pago e o que falta pagar (contas e repasses), saldo atual e projetado ──
+  let fcPrevComp = null, fcPrevSeq = 0;
+  const fcDia = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '';
+  const fcMesMais = (d, n) => { const [a, m] = String(d).slice(0, 7).split('-').map(Number); const x = new Date(a, m - 1 + n, 1); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-01'; };
+  async function fcPrevia(fundo, comp) {
+    const seq = ++fcPrevSeq, el = () => document.getElementById('fcPrev');
+    fcPrevComp = String(comp).slice(0, 10);
+    if (el()) el().innerHTML = '<div style="color:var(--muted);font-size:13px">Carregando a prévia…</div>';
+    try {
+      const r = await ppChamar('fechamento_previa', { fundo, competencia: fcPrevComp });
+      if (seq === fcPrevSeq && el()) el().innerHTML = fcPreviaHtml(r, fundo);
+    } catch (e) { if (seq === fcPrevSeq && el()) el().innerHTML = `<div style="color:#B42318;font-size:13px">Prévia: ${fcEsc(e.message)}</div>` + fcCorpo((fcDados.fundos.find(x => x.id === fundo) || {}).previa || {}); }
+  }
+  function fcPreviaHtml(r, fundo) {
+    const L = (l, v, cls, extra) => `<div class="fc-l ${cls || ''}"><span>${l}</span><span>${v == null ? '' : fcBrl(v)}${extra || ''}</span></div>`;
+    const vazio = t => `<div class="fc-l i" style="color:var(--muted)">${t}</div>`;
+    const lista = (arr, f, t) => (arr || []).length ? arr.map(f).join('') : vazio(t);
+    const hoje = blHoje().slice(0, 7) + '-01';
+    const meses = [fcMesMais(hoje, 0), fcMesMais(hoje, 1)];
+    let h = `<div class="fc-meses">${meses.map((m, k) => `<button class="${m === String(r.competencia).slice(0, 10) ? 'ativo' : ''}" onclick="fcPrevia(${fundo}, '${m}')">${k ? 'Próximo mês' : 'Mês atual'} · ${fcEsc(fcMes(m))}</button>`).join('')}</div>`;
+    h += `<div class="fc-sal2"><div><div class="r">Saldo atual</div><div class="v">${fcBrl(r.saldo_atual)}</div></div>
+      <div><div class="r">Saldo projetado · ${fcEsc(fcMes(r.competencia))}</div><div class="v" style="color:${Number(r.saldo_projetado) < 0 ? '#B42318' : 'inherit'}">${fcBrl(r.saldo_projetado)}</div></div></div>
+      <div class="fc-form">Projetado = saldo atual ${fcBrl(r.saldo_atual)} + a receber do fundo nos boletos do mês em aberto ${fcBrl(r.a_receber)} − contas a pagar ${fcBrl(r.contas_a_pagar)}.</div>`;
+    h += '<div class="fc-t">Contas e despesas do fundo</div><div class="fc-2col"><div>'
+      + L('<b>Pagas</b>', r.contas_pagas, 'f') + lista(r.contas_pagas_det, c => L(fcEsc(c.descricao) + ` <span style="color:var(--muted)">${fcDia(c.data)}</span>`, c.valor, 'i'), 'nenhuma paga no mês')
+      + '</div><div>' + L('<b>Falta pagar</b>', r.contas_a_pagar, 'f') + lista(r.contas_a_pagar_det, c => L(fcEsc(c.descricao) + ` <span class="${c.atrasada ? 'fc-atr' : ''}" style="${c.atrasada ? '' : 'color:var(--muted)'}">vence ${fcDia(c.vencimento)}</span>`, c.valor, 'i'), 'nada a pagar')
+      + '</div></div>';
+    h += '<div class="fc-t">Repasses aos donos (boletos do mês)</div><div class="fc-2col"><div>'
+      + L('<b>Pagos</b>', r.repasses_pagos, 'f') + lista(r.repasses_pagos_det, x => L(fcEsc(x.nome) + ` <span style="color:var(--muted)">${fcDia(x.data)}</span>`, x.valor, 'i'), 'nenhum pago no mês')
+      + '</div><div>' + L('<b>Falta pagar</b>', r.repasses_a_pagar, 'f') + lista(r.repasses_a_pagar_det, x => L(fcEsc(x.nome) + ` <span style="color:var(--muted)">prev. ${fcDia(x.data)}</span>`, x.valor, 'i'), 'nenhum gerado a pagar')
+      + (Number(r.repasses_previstos) ? L('<span style="color:var(--muted)">+ quando os boletos em aberto forem pagos (estimado)</span>', r.repasses_previstos, 'i') : '')
+      + '</div></div>';
+    h += '<div class="fc-t">Boletos do mês</div>' + L('Recebido', r.recebido, 'i')
+      + L(`A receber (${(r.a_receber_det || []).length} boleto(s) em aberto) · parte do fundo`, r.a_receber, 'i');
+    if ((r.a_receber_det || []).length) h += `<details style="font-size:12.5px;margin:2px 0 0 14px"><summary style="cursor:pointer;color:var(--muted)">ver boletos em aberto</summary>${r.a_receber_det.map(b =>
+      L(`${fcEsc(b.contrato)} · ${fcEsc(b.locatario)} <span class="${b.atrasado ? 'fc-atr' : ''}" style="${b.atrasado ? '' : 'color:var(--muted)'}">vence ${fcDia(b.vencimento)} · boleto ${fcBrl(b.valor)}</span>`, b.fundo, 'i')).join('')}</details>`;
+    if (r.calculo) h += `<details style="margin-top:10px;font-size:13px"><summary style="cursor:pointer;color:var(--muted)">Como fica o fechamento deste mês (entradas, saídas, provisões e distribuição)</summary>${fcCorpo(r.calculo)}</details>`;
+    return h;
   }
   function abaBadge(id, n) {
     const el = document.getElementById(id); if (!el) return;
