@@ -921,7 +921,7 @@
   }
   const compTxt = d => d.competencia ? '<b>' + d.competencia + '</b>' : '—';
   function classificar(d) {
-    const dataDoc = extrairData(d.vencimento_original || d.vencimento);
+    const dataDoc = extrairData(d.atraso_desde || d.vencimento_original || d.vencimento);   // 29/10 (Eric): atraso pela competência
     if (!dataDoc) return d.status || 'A VENCER';
     const hj = hoje();
     if (dataDoc.str < hj) return 'EM ATRASO';
@@ -1285,10 +1285,10 @@
         const at = await ppChamar('boletos_abertos', {});
         // 29/10: competência e vencimento original também para os boletos da SL (casados pelo id S<nº>)
         const porId = {}; (at.itens || []).forEach(b => { porId[b.id] = b; });
-        todos.forEach(d => { const b = porId[d._id]; if (b) { d.competencia = b.competencia; d.vencimento_original = b.vencimento_original; d.dias_atraso = b.dias_atraso; d._status = classificar(d); } });
+        todos.forEach(d => { const b = porId[d._id]; if (b) { d.competencia = b.competencia; d.vencimento_original = b.vencimento_original; d.atraso_desde = b.atraso_desde; d.dias_atraso = b.dias_atraso; d._status = classificar(d); } });
         (at.itens || []).filter(b => b.origem === 'itau').forEach(b => {
           const d = { id_superlogica: null, nome_cliente: b.locatario, imovel: b.rotulo, vencimento: b.vencimento, valor: b.valor, valor_atualizado: b.valor,
-                      dias_atraso: b.dias_atraso, competencia: b.competencia, vencimento_original: b.vencimento_original, link_boleto_pdf: b.segunda_via || '', link_boleto: '', pix_qrcode: b.pix || '', _origem: 'itau', _id: b.id,
+                      dias_atraso: b.dias_atraso, competencia: b.competencia, vencimento_original: b.vencimento_original, atraso_desde: b.atraso_desde, link_boleto_pdf: b.segunda_via || '', link_boleto: '', pix_qrcode: b.pix || '', _origem: 'itau', _id: b.id,
                       // 27/10: telefone do mesmo cadastro da régua (antes ficava 'sem telefone' em todo boleto do Atlas)
                       id_contrato: b.id_contrato || null, telefone: b.telefone || '', wpp_status: b.wpp_status || null, telefone_origem: b.telefone_origem || null };
           todos.push({ ...d, _status: classificar(d) });
