@@ -783,7 +783,7 @@
           <tr>
             <th>Locatário</th>
             <th>Imóvel</th>
-            <th>Vencimento</th>
+            <th>Competência · Vencimento</th>
             <th>Valor</th>
             <th>Atraso</th>
             <th>Status</th>
@@ -912,8 +912,14 @@
   }
 
   // Reclassifica status corretamente comparando só a data local
+  // Eric 29/10: competência + vencimento; o atraso conta do vencimento ORIGINAL (reemissão/2ª via não zera o atraso)
+  function compVenc(d) {
+    const orig = d.vencimento_original && String(d.vencimento_original).slice(0, 10) !== String(d.vencimento || '').slice(0, 10)
+      ? '<br><span style="color:var(--muted);font-size:11px">original ' + fmtData(d.vencimento_original) + '</span>' : '';
+    return (d.competencia ? '<b>' + d.competencia + '</b><br>' : '') + fmtData(d.vencimento) + orig;
+  }
   function classificar(d) {
-    const dataDoc = extrairData(d.vencimento);
+    const dataDoc = extrairData(d.vencimento_original || d.vencimento);
     if (!dataDoc) return d.status || 'A VENCER';
     const hj = hoje();
     if (dataDoc.str < hj) return 'EM ATRASO';
@@ -1024,7 +1030,7 @@
         g.items.forEach(d => {
           html += '<tr>'+
             '<td class="td-nome" style="padding-left:28px">'+( d.imovel||'—')+'</td>'+
-            '<td style="color:var(--muted);font-size:12px">'+fmtData(d.vencimento)+'</td>'+
+            '<td style="color:var(--muted);font-size:12px">'+compVenc(d)+'</td>'+
             '<td class="td-valor">'+fmtBRL(d.valor_atualizado||d.valor)+'</td>'+
             '<td style="font-weight:500;color:'+(Number(d.dias_atraso)>0?'var(--red)':'var(--muted)')+'">'+diasLabel(d.dias_atraso)+'</td>'+
             '<td>'+badgeHTML(d._status)+'</td>'+
@@ -1044,7 +1050,7 @@
         '<tr>'+
         '<td class="td-nome">'+nomeHTML(d)+'</td>'+
         '<td style="color:var(--muted);font-size:12px">'+(d.imovel||'—')+'</td>'+
-        '<td style="white-space:nowrap;font-size:13px">'+fmtData(d.vencimento)+'</td>'+
+        '<td style="white-space:nowrap;font-size:13px">'+compVenc(d)+'</td>'+
         '<td class="td-valor">'+fmtBRL(d.valor_atualizado||d.valor)+'</td>'+
         '<td style="font-weight:500;color:'+(Number(d.dias_atraso)>0?'var(--red)':'var(--muted)')+'">'+diasLabel(d.dias_atraso)+'</td>'+
         '<td>'+badgeHTML(d._status)+'</td>'+
@@ -1075,7 +1081,7 @@
               badgeHTML(d._status)+
             '</div>'+
             '<div class="mob-grid">'+
-              '<div><div class="mob-field-label">Vencimento</div><div class="mob-field-value">'+fmtData(d.vencimento)+'</div></div>'+
+              '<div><div class="mob-field-label">Competência · Vencimento</div><div class="mob-field-value">'+compVenc(d)+'</div></div>'+
               '<div><div class="mob-field-label">Valor</div><div class="mob-field-value">'+fmtBRL(d.valor_atualizado||d.valor)+'</div></div>'+
               '<div><div class="mob-field-label">Atraso</div><div class="mob-field-value '+diasCor+'">'+diasLabel(d.dias_atraso)+'</div></div>'+
             '</div>'+
@@ -1096,7 +1102,7 @@
             badgeHTML(d._status)+
           '</div>'+
           '<div class="mob-grid">'+
-            '<div><div class="mob-field-label">Vencimento</div><div class="mob-field-value">'+fmtData(d.vencimento)+'</div></div>'+
+            '<div><div class="mob-field-label">Competência · Vencimento</div><div class="mob-field-value">'+compVenc(d)+'</div></div>'+
             '<div><div class="mob-field-label">Valor</div><div class="mob-field-value">'+fmtBRL(d.valor_atualizado||d.valor)+'</div></div>'+
             '<div><div class="mob-field-label">Atraso</div><div class="mob-field-value '+diasCor+'">'+diasLabel(d.dias_atraso)+'</div></div>'+
           '</div>'+
@@ -1273,9 +1279,12 @@
       // boletos do ATLAS (registrados no Itaú, a partir de nov/26): entram aqui pela API do portal (Eric 15/10)
       try {
         const at = await ppChamar('boletos_abertos', {});
+        // 29/10: competência e vencimento original também para os boletos da SL (casados pelo id S<nº>)
+        const porId = {}; (at.itens || []).forEach(b => { porId[b.id] = b; });
+        todos.forEach(d => { const b = porId[d._id]; if (b) { d.competencia = b.competencia; d.vencimento_original = b.vencimento_original; d.dias_atraso = b.dias_atraso; d._status = classificar(d); } });
         (at.itens || []).filter(b => b.origem === 'itau').forEach(b => {
           const d = { id_superlogica: null, nome_cliente: b.locatario, imovel: b.rotulo, vencimento: b.vencimento, valor: b.valor, valor_atualizado: b.valor,
-                      dias_atraso: b.dias_atraso, link_boleto_pdf: b.segunda_via || '', link_boleto: '', pix_qrcode: b.pix || '', _origem: 'itau', _id: b.id,
+                      dias_atraso: b.dias_atraso, competencia: b.competencia, vencimento_original: b.vencimento_original, link_boleto_pdf: b.segunda_via || '', link_boleto: '', pix_qrcode: b.pix || '', _origem: 'itau', _id: b.id,
                       // 27/10: telefone do mesmo cadastro da régua (antes ficava 'sem telefone' em todo boleto do Atlas)
                       id_contrato: b.id_contrato || null, telefone: b.telefone || '', wpp_status: b.wpp_status || null, telefone_origem: b.telefone_origem || null };
           todos.push({ ...d, _status: classificar(d) });
