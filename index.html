@@ -783,7 +783,8 @@
           <tr>
             <th>Locatário</th>
             <th>Imóvel</th>
-            <th>Competência · Vencimento</th>
+            <th>Competência</th>
+            <th>Vencimento</th>
             <th>Valor</th>
             <th>Atraso</th>
             <th>Status</th>
@@ -913,11 +914,12 @@
 
   // Reclassifica status corretamente comparando só a data local
   // Eric 29/10: competência + vencimento; o atraso conta do vencimento ORIGINAL (reemissão/2ª via não zera o atraso)
-  function compVenc(d) {
+  function vencTxt(d) {
     const orig = d.vencimento_original && String(d.vencimento_original).slice(0, 10) !== String(d.vencimento || '').slice(0, 10)
       ? '<br><span style="color:var(--muted);font-size:11px">original ' + fmtData(d.vencimento_original) + '</span>' : '';
-    return (d.competencia ? '<b>' + d.competencia + '</b><br>' : '') + fmtData(d.vencimento) + orig;
+    return fmtData(d.vencimento) + orig;
   }
+  const compTxt = d => d.competencia ? '<b>' + d.competencia + '</b>' : '—';
   function classificar(d) {
     const dataDoc = extrairData(d.vencimento_original || d.vencimento);
     if (!dataDoc) return d.status || 'A VENCER';
@@ -1014,7 +1016,7 @@
   function renderTabela(lista) {
     const tbody = document.getElementById('tbody');
     if (!lista.length) {
-      tbody.innerHTML='<tr class="empty-row"><td colspan="7">✅ Nenhum registro para este filtro.</td></tr>';
+      tbody.innerHTML='<tr class="empty-row"><td colspan="8">✅ Nenhum registro para este filtro.</td></tr>';
       return;
     }
 
@@ -1025,12 +1027,12 @@
       const grupos = agrupar(lista);
       let html = '';
       grupos.forEach(g => {
-        html += '<tr class="group-header"><td colspan="7">👤 '+nomeHTML(g.items[0], g.nome)+
+        html += '<tr class="group-header"><td colspan="8">👤 '+nomeHTML(g.items[0], g.nome)+
           ' <span style="font-weight:400;color:var(--muted)">· '+g.items.length+' boleto'+(g.items.length!==1?'s':'')+'</span></td></tr>';
         g.items.forEach(d => {
           html += '<tr>'+
-            '<td class="td-nome" style="padding-left:28px">'+( d.imovel||'—')+'</td>'+
-            '<td style="color:var(--muted);font-size:12px">'+compVenc(d)+'</td>'+
+            '<td></td><td class="td-nome" style="color:var(--muted);font-size:12px">'+( d.imovel||'—')+'</td>'+
+            '<td style="font-size:12px">'+compTxt(d)+'</td><td style="color:var(--muted);font-size:12px">'+vencTxt(d)+'</td>'+
             '<td class="td-valor">'+fmtBRL(d.valor_atualizado||d.valor)+'</td>'+
             '<td style="font-weight:500;color:'+(Number(d.dias_atraso)>0?'var(--red)':'var(--muted)')+'">'+diasLabel(d.dias_atraso)+'</td>'+
             '<td>'+badgeHTML(d._status)+'</td>'+
@@ -1039,8 +1041,8 @@
         });
         if (grupos.length > 1) {
           html += '<tr class="group-total">'+
-            '<td colspan="2" style="font-size:11px">Total de '+g.nome+'</td>'+
-            '<td colspan="5">'+fmtBRL(g.total)+'</td>'+
+            '<td colspan="4" style="font-size:11px">Total de '+g.nome+'</td>'+
+            '<td colspan="4">'+fmtBRL(g.total)+'</td>'+
             '</tr>';
         }
       });
@@ -1050,7 +1052,7 @@
         '<tr>'+
         '<td class="td-nome">'+nomeHTML(d)+'</td>'+
         '<td style="color:var(--muted);font-size:12px">'+(d.imovel||'—')+'</td>'+
-        '<td style="white-space:nowrap;font-size:13px">'+compVenc(d)+'</td>'+
+        '<td style="white-space:nowrap;font-size:13px">'+compTxt(d)+'</td><td style="white-space:nowrap;font-size:13px">'+vencTxt(d)+'</td>'+
         '<td class="td-valor">'+fmtBRL(d.valor_atualizado||d.valor)+'</td>'+
         '<td style="font-weight:500;color:'+(Number(d.dias_atraso)>0?'var(--red)':'var(--muted)')+'">'+diasLabel(d.dias_atraso)+'</td>'+
         '<td>'+badgeHTML(d._status)+'</td>'+
@@ -1081,7 +1083,8 @@
               badgeHTML(d._status)+
             '</div>'+
             '<div class="mob-grid">'+
-              '<div><div class="mob-field-label">Competência · Vencimento</div><div class="mob-field-value">'+compVenc(d)+'</div></div>'+
+              '<div><div class="mob-field-label">Competência</div><div class="mob-field-value">'+compTxt(d)+'</div></div>'+
+              '<div><div class="mob-field-label">Vencimento</div><div class="mob-field-value">'+vencTxt(d)+'</div></div>'+
               '<div><div class="mob-field-label">Valor</div><div class="mob-field-value">'+fmtBRL(d.valor_atualizado||d.valor)+'</div></div>'+
               '<div><div class="mob-field-label">Atraso</div><div class="mob-field-value '+diasCor+'">'+diasLabel(d.dias_atraso)+'</div></div>'+
             '</div>'+
@@ -1102,7 +1105,8 @@
             badgeHTML(d._status)+
           '</div>'+
           '<div class="mob-grid">'+
-            '<div><div class="mob-field-label">Competência · Vencimento</div><div class="mob-field-value">'+compVenc(d)+'</div></div>'+
+            '<div><div class="mob-field-label">Competência</div><div class="mob-field-value">'+compTxt(d)+'</div></div>'+
+              '<div><div class="mob-field-label">Vencimento</div><div class="mob-field-value">'+vencTxt(d)+'</div></div>'+
             '<div><div class="mob-field-label">Valor</div><div class="mob-field-value">'+fmtBRL(d.valor_atualizado||d.valor)+'</div></div>'+
             '<div><div class="mob-field-label">Atraso</div><div class="mob-field-value '+diasCor+'">'+diasLabel(d.dias_atraso)+'</div></div>'+
           '</div>'+
@@ -1297,7 +1301,7 @@
     } catch(e) {
       console.error(e);
       dot.className='sync-dot erro'; txt.textContent='Erro ao carregar';
-      document.getElementById('tbody').innerHTML='<tr class="error-row"><td colspan="7">⚠️ Não foi possível carregar os dados.</td></tr>';
+      document.getElementById('tbody').innerHTML='<tr class="error-row"><td colspan="8">⚠️ Não foi possível carregar os dados.</td></tr>';
       document.getElementById('cardsMobile').innerHTML='<div style="text-align:center;padding:32px;color:var(--red);font-size:13px">⚠️ Não foi possível carregar os dados.</div>';
       ['mValor','mQtd','mHoje','mMaior'].forEach(id=>document.getElementById(id).textContent='—');
     } finally { ico.classList.remove('spin'); }
