@@ -1274,14 +1274,9 @@
     const ico=document.getElementById('reloadIcon');
     dot.className='sync-dot loading'; txt.textContent='Atualizando...'; ico.classList.add('spin');
     try {
-      const res=await fetch(API);
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const json=await res.json();
-      const dados=json.dados||json.data||json;
-      // Reclassifica cada boleto com data local correta
-      todos = (Array.isArray(dados)?dados:[]).map(d=>({ ...d, _origem: 'superlogica', _id: 'S' + d.id_superlogica, _status: classificar(d) }));
-      // boletos do ATLAS (registrados no Itaú, a partir de nov/26): entram aqui pela API do portal (Eric 15/10)
-      try {
+      // 03/11 (Eric): sync com a Superlógica DESLIGADO — o painel lê só o Atlas (todo boleto da SL em aberto já foi reemitido ou decidido)
+      todos = [];
+      {
         const at = await ppChamar('boletos_abertos', {});
         // 29/10: competência e vencimento original também para os boletos da SL (casados pelo id S<nº>)
         const porId = {}; (at.itens || []).forEach(b => { porId[b.id] = b; });
@@ -1296,7 +1291,7 @@
                       id_contrato: b.id_contrato || null, telefone: b.telefone || '', wpp_status: b.wpp_status || null, telefone_origem: b.telefone_origem || null };
           todos.push({ ...d, _status: classificar(d) });
         });
-      } catch (e) { console.warn('boletos do Atlas não carregaram', e); }
+      }
       renderMetricas();
       renderTudo();
       const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
