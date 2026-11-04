@@ -2287,7 +2287,7 @@
       ${ps.map(p => { const trava = p.assinado_em ? 'já assinou' : p.reenvio_pendente ? 'reenvio na fila' : (!p.tem_link && !p.por_email) ? 'sem link' : '';
         return `<label class="ni-parte"><input type="checkbox" class="niReCk" value="${p.aviso_id}" ${trava ? 'disabled' : ''}>
           <span class="q"><b>${niEsc(p.nome)}</b> <span class="ni-mut">· ${niPapelTit(p)} ${p.telefone ? '· ' + niEsc(p.telefone) : ''}</span><br>
-          <span class="ni-mut">${trava ? trava : p.ultimo_envio ? 'último envio ' + niQuando(p.ultimo_envio) : 'ainda não enviado'}${p.por_email && !trava ? ' · assina pelo e-mail ' + niEsc(p.email || '') + ' (o WhatsApp lembra de abrir o e-mail da D4Sign)' : ''}</span></span></label>`; }).join('') || '<div class="ni-mut">Nenhum signatário com link.</div>'}
+          <span class="ni-mut">${trava ? trava : p.ultimo_envio ? 'último envio ' + niQuando(p.ultimo_envio) : 'ainda não enviado'}${p.por_email && !trava ? (p.por_whatsapp ? ' · assina pelo WhatsApp da D4Sign (o WhatsApp da Pensão lembra de abrir a mensagem da D4Sign)' : ' · assina pelo e-mail ' + niEsc(p.email || '') + ' (o WhatsApp lembra de abrir o e-mail da D4Sign)') : ''}</span></span></label>`; }).join('') || '<div class="ni-mut">Nenhum signatário com link.</div>'}
       <div class="ni-erro-msg" id="niReMsg"></div>
       <div class="modal-btns"><button class="btn-modal btn-cancel" onclick="niModalFechar()">Voltar</button>
         <button class="btn-modal btn-ok" id="niReBtn" onclick="niReenviarEnviar(${id})">Reenviar</button></div>`);
@@ -2310,7 +2310,7 @@
       <div class="modal-sub">É o link individual que a pessoa usa para assinar (com o código de acesso). Mande só para ela.</div>
       ${ps.map(p => `<div class="ni-parte"><span class="q"><b>${niEsc(p.nome)}</b> <span class="ni-mut">· ${niPapelTit(p)}${p.assinado_em ? ' · já assinou ✓' : ''}</span>
           <div id="niLk${p.aviso_id}" class="ni-mut"></div></span>
-        ${p.por_email ? `<span class="ni-mut">Assinatura pelo e-mail ${niEsc(p.email || '')}</span>` : `<button class="ni-b" ${p.tem_link ? '' : 'disabled'} onclick="niCopiar(${id}, ${p.aviso_id}, this)">Copiar</button>`}</div>`).join('') || '<div class="ni-mut">Nenhum signatário com link.</div>'}
+        ${p.por_email ? `<span class="ni-mut">${p.por_whatsapp ? 'Assinatura pelo WhatsApp da D4Sign (o link chega na mensagem dela, no celular da pessoa)' : 'Assinatura pelo e-mail ' + niEsc(p.email || '')}</span>` : `<button class="ni-b" ${p.tem_link ? '' : 'disabled'} onclick="niCopiar(${id}, ${p.aviso_id}, this)">Copiar</button>`}</div>`).join('') || '<div class="ni-mut">Nenhum signatário com link.</div>'}
       <div class="modal-btns" style="margin-top:12px"><button class="btn-modal btn-cancel" onclick="niModalFechar()">Fechar</button></div>`);
   }
   async function niCopiar(id, aviso, btn) {
