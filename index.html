@@ -998,7 +998,11 @@
     const p = temPix
       ? '<button class="btn-action btn-pix" onclick="copiarPix(this,\''+pixEsc+'\')">⚡ PIX</button>'
       : '<span class="btn-action btn-pix btn-disabled">⚡ PIX</span>';
-    return b+p;
+    // T281 (Eric 09/11): Cancelar ao lado da 2ª via/Reemitir — só boleto do Atlas (Itaú); o da Superlógica não se cancela aqui
+    const cx = d._origem === 'itau'
+      ? '<button class="btn-action" style="color:#B42318;border:1px solid #FECACA;background:#fff" title="Cancelar o boleto (motivo obrigatório)" onclick="bcAbrir('+k+')">✕ Cancelar</button>'
+      : '';
+    return b+cx+p;
   }
 
   // Agrupa por locatário quando filtro é EM ATRASO ou VENCE HOJE
@@ -2498,6 +2502,83 @@
       setTimeout(() => { blFechar(); carregar(); }, 4000);
     } catch (e) { msg.style.color = '#B42318'; msg.textContent = e.message; }
   }
+  // ---------------------------------------------------------------- Cancelar boleto (T281, Eric 09/11)
+  // Motivo obrigatório da lista. Dinheiro e abono: a taxa da ADM (8% do aluguel, ou da parte abonada) sai da Reserva do fundo
+  // (o banco lança sozinho). Abono parcial: sai um boleto novo com o restante. Boleto registrado é baixado no Itaú pelo robô.
+  const BC_MOT = [['dinheiro', 'Recebido em dinheiro no local'], ['abono', 'Abono do proprietário'], ['erro_reemissao', 'Erro de emissão / reemissão'],
+                  ['contrato_encerrado', 'Contrato encerrado'], ['outro', 'Outro (descrever)']];
+  let bcInfo = null;
+  async function bcAbrir(k) {
+    const d0 = todos[k]; if (!d0 || d0._origem !== 'itau') return;
+    const b = { id: d0._id, rotulo: d0.imovel || '—', locatario: d0.nome_cliente || '' }, id = b.id;
+    blAtual = b; bcInfo = null;
+    const c = document.getElementById('blModalCorpo'); document.getElementById('blModal').style.display = 'flex';
+    c.innerHTML = '<div style="font-size:13px;color:var(--muted)">Carregando…</div>';
+    try { bcInfo = await ppChamar('boleto_cancelar', { id, simular: true }); } catch (e) { c.innerHTML = `<div style="color:#B42318;font-size:13px">${fcEsc(e.message)}</div>`; return; }
+    const op = ([k, t]) => `<label style="display:block;border:1px solid #ddd;border-radius:10px;padding:8px 10px;margin-bottom:6px;cursor:pointer;font-size:13.5px">
+        <input type="radio" name="bcMot" value="${k}" onchange="bcAtualiza()"> ${t}</label>`;
+    c.innerHTML = `<div style="font-weight:700;font-size:16px;margin-bottom:4px">Cancelar boleto · ${fcEsc(b.rotulo)}</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">${fcEsc(b.locatario || '')} · ${fcBrl(bcInfo.valor)} (aluguel ${fcBrl(bcInfo.aluguel)}) · vence ${blData(bcInfo.vencimento)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Motivo (obrigatório)</div>
+      ${BC_MOT.map(op).join('')}
+      <div id="bcAbono" style="display:none;margin:6px 0 4px 4px;font-size:13px">
+        <label style="margin-right:14px"><input type="radio" name="bcAbTipo" value="total" checked onchange="bcAtualiza()"> Total</label>
+        <label><input type="radio" name="bcAbTipo" value="parcial" onchange="bcAtualiza()"> Parcial</label>
+        <div id="bcParcial" style="display:none;margin-top:8px">
+          <label style="font-size:12px;color:var(--muted)">Valor abonado (R$, do aluguel)</label>
+          <input type="number" id="bcValor" min="0.01" step="0.01" max="${bcInfo.aluguel}" oninput="bcAtualiza()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;margin:4px 0 8px">
+          <label style="font-size:12px;color:var(--muted)">Vencimento do novo boleto (com o restante)</label>
+          <input type="date" id="bcVenc" value="${bcInfo.vencimento >= blMais(2) ? bcInfo.vencimento : blMais(2)}" min="${blHoje()}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;margin:4px 0 4px">
+        </div>
+      </div>
+      <label style="font-size:12px;color:var(--muted);display:block;margin-top:8px" id="bcObsRot">Observação</label>
+      <textarea id="bcObs" rows="2" oninput="bcAtualiza()" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;margin:4px 0 8px;font-family:inherit;box-sizing:border-box"></textarea>
+      <div id="bcAviso" style="font-size:13px;margin-bottom:8px"></div>
+      <button id="bcOk" disabled onclick="bcConfirmar()" style="width:100%;padding:10px;border-radius:10px;border:none;background:#B42318;color:#fff;font-size:14px;cursor:pointer;opacity:.5">Cancelar o boleto</button>
+      <button onclick="blFechar()" style="width:100%;padding:8px;border:none;background:none;color:var(--muted);margin-top:4px;cursor:pointer">Voltar</button>
+      <div id="bcMsg" style="font-size:13px;margin-top:8px"></div>`;
+  }
+  function bcDados() {
+    const mot = (document.querySelector('input[name=bcMot]:checked') || {}).value || '';
+    const abTipo = (document.querySelector('input[name=bcAbTipo]:checked') || {}).value || 'total';
+    const d = { id: blAtual.id, motivo: mot, obs: document.getElementById('bcObs').value.trim() };
+    if (mot === 'abono') { d.abono_tipo = abTipo; if (abTipo === 'parcial') { d.abono_valor = Number(document.getElementById('bcValor').value || 0); d.vencimento = document.getElementById('bcVenc').value; } }
+    return d;
+  }
+  function bcAtualiza() {
+    if (!bcInfo) return;
+    const d = bcDados(), pct = Number(bcInfo.pct_adm || 0), av = document.getElementById('bcAviso');
+    document.getElementById('bcAbono').style.display = d.motivo === 'abono' ? 'block' : 'none';
+    document.getElementById('bcParcial').style.display = d.motivo === 'abono' && d.abono_tipo === 'parcial' ? 'block' : 'none';
+    document.getElementById('bcObsRot').textContent = d.motivo === 'outro' ? 'Descreva o motivo (obrigatório)' : 'Observação (opcional)';
+    let ok = !!d.motivo, txt = '', cor = 'var(--muted)';
+    const r2 = v => Math.round(v * 100) / 100;
+    if (d.motivo === 'outro' && !d.obs) ok = false;
+    if (d.motivo === 'dinheiro') { txt = `A taxa da ADM de <b>${fcBrl(bcInfo.taxa_dinheiro)}</b> (${pct}% do aluguel) sai da reserva. A parte da reserva, do dono e de água/luz/IPTU fica fora do Atlas, como hoje.`; cor = '#92400E'; }
+    else if (d.motivo === 'abono' && d.abono_tipo === 'total') { txt = `A taxa da ADM de <b>${fcBrl(r2(bcInfo.aluguel * pct / 100))}</b> (${pct}% do aluguel abonado) sai da reserva.`; cor = '#92400E'; }
+    else if (d.motivo === 'abono') {
+      const v = Number(d.abono_valor || 0);
+      if (!(v > 0) || v > Number(bcInfo.aluguel) || v >= Number(bcInfo.valor) || !d.vencimento) { ok = false; txt = `Informe o valor abonado (até ${fcBrl(bcInfo.aluguel)}) e o vencimento do novo boleto.`; }
+      else { txt = `Sai um boleto novo de <b>${fcBrl(r2(bcInfo.valor - v))}</b> vencendo ${blData(d.vencimento)}. A taxa da ADM de <b>${fcBrl(r2(v * pct / 100))}</b> (${pct}% da parte abonada) sai da reserva; o resto da taxa vem do boleto novo quando for pago.`; cor = '#92400E'; }
+    }
+    else if (d.motivo) txt = 'Nada é lançado: a taxa vem do boleto que substituir este (se houver).';
+    if (d.motivo && bcInfo.status === 'registrado') txt += ' O boleto é baixado no Itaú pelo robô (o Itaú aceita a partir do dia seguinte à emissão).';
+    av.style.color = cor; av.innerHTML = txt;
+    const b = document.getElementById('bcOk'); b.disabled = !ok; b.style.opacity = ok ? 1 : .5;
+  }
+  async function bcConfirmar() {
+    const d = bcDados(), msg = document.getElementById('bcMsg'), b = document.getElementById('bcOk');
+    if (!confirm('Cancelar este boleto? Não dá para desfazer.')) return;
+    b.disabled = true; msg.style.color = 'var(--muted)'; msg.textContent = 'Cancelando…';
+    try {
+      const r = await ppChamar('boleto_cancelar', d);
+      msg.style.color = '#1E7A4F';
+      msg.textContent = 'Cancelado.' + (Number(r.taxa) > 0 ? ` Taxa da ADM de ${fcBrl(r.taxa)} lançada na reserva.` : '')
+        + (r.novo_id ? ` Boleto novo de ${fcBrl(r.novo_valor)} vencendo ${blData(r.novo_vencimento)}: o Itaú registra em até 5 minutos.` : '')
+        + (r.baixar_no_itau ? ' O antigo é baixado no Itaú.' : '');
+      setTimeout(() => { blFechar(); carregar(); }, 4000);
+    } catch (e) { msg.style.color = '#B42318'; msg.textContent = e.message; b.disabled = false; }
+  }
   // ---------------------------------------------------------------- Fechamentos (Eric 14/10)
   let fcDados = null, fcFundo = null;
   const fcBrl = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -2524,6 +2605,11 @@
     h += `<div class="fc-saldo">${L('Saldo', c.saldo, 'f')}</div><div class="fc-t">Distribuição</div>`;
     if (Number(c.distribuir) > 0) (c.donos || []).forEach(d => { h += L(`${d.nome} (${Number(d.pct).toFixed(2).replace('.', ',')}%)`, d.valor, 'i'); });
     else h += '<div class="fc-l i" style="color:var(--muted)">Saldo negativo ou zero: carrega para o mês seguinte.</div>';
+    // T281 (Eric 09/11): boletos cancelados no mês, por motivo
+    if ((c.cancelamentos || []).length) {
+      h += '<div class="fc-t">Boletos cancelados no mês (por motivo)</div>';
+      c.cancelamentos.forEach(x => { h += `<div class="fc-l i"><span>${fcEsc(x.rotulo)} · ${x.qtd} boleto(s) · ${fcBrl(x.valor)}</span><span>${Number(x.taxa) ? 'taxa ADM ' + fcBrl(x.taxa) : ''}</span></div>`; });
+    }
     return h;
   }
   function fcRender() {
