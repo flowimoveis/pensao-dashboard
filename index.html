@@ -2213,6 +2213,8 @@
     if (x.credito_erro) h += `<div class="ni-linha" style="color:#DC2626">${niEsc(x.credito_erro)}</div>`;
     if (x.doc_motivo && ['travado', 'erro', 'duplicada'].includes(x.doc_status)) h += `<div class="ni-linha" style="color:#DC2626">${niEsc(x.doc_motivo)}</div>`;
     if (x.efetivar_erro) h += `<div class="ni-linha" style="color:#DC2626">Contrato/boleto automático parou: ${niEsc(x.efetivar_erro)}</div>`;
+    // Eric 09/11: locatário já assinou uma versão ainda aberta ⇒ não sai outra até assinarem o resto ou cancelarem essa
+    if (x.trava && x.trava.mensagem) h += `<div class="ni-linha" style="color:#92400E">🔒 ${niEsc(x.trava.mensagem)}</div>`;
     if (legado && x.status === 'pendente') h += `<div class="ni-linha ni-mut">Veio pelo formulário antigo (antes de 24/10).${x.ocupado_por ? ' ⚠️ O quarto ainda tem contrato ativo: ' + niEsc(x.ocupado_por) + '.' : ''}</div>`;
     const eu = String(niDados.eu || ''), ehEric = /^eric/i.test(eu), ehAdm = ehEric || /^nat/i.test(eu);
     const semScore = x.credito_status === 'em_analise' && /^decisão do gestor/.test(x.aguardando || '');
@@ -2252,6 +2254,7 @@
     niModalAbrir(`<div class="modal-title">Cancelar o contrato · ${niEsc(x.nome)}</div>
       <div class="modal-sub">${x.doc_status === 'enviado' ? 'O documento é cancelado na D4Sign (pela fila do robô, em até 10 min) e os links param de valer.' : 'O contrato ainda não foi para assinatura: o pedido é cancelado sem ir à D4Sign.'}
         Os avisos de WhatsApp que ainda não saíram são cancelados. Depois dá para gerar de novo ou encerrar o candidato.</div>
+      ${x.trava && String(x.trava.solicitacao_id) === String(x.id) ? '<div class="ni-linha" style="color:#92400E"><b>Atenção:</b> o locatário já assinou esta versão. Se cancelar, ele vai ter de assinar a nova de novo.</div>' : ''}
       <label class="modal-label" for="niCanMot">Motivo (fica no histórico)</label>
       <input id="niCanMot" class="modal-input" maxlength="300" oninput="niCanOk()">
       <label class="modal-label" for="niCanConf">Para confirmar, digite <b>cancelar</b></label>
