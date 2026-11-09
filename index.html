@@ -2693,21 +2693,20 @@ function fcPreviaHtml(r, fundo) {
       + (Number(r.repasses_a_conferir) ? L('<span style="color:var(--muted)">+ boletos pagos com repasse a conferir</span>', r.repasses_a_conferir, 'i') : '')   // Eric 04/11: falta pagar = só conferidos
       + (Number(r.repasses_previstos) ? L('<span style="color:var(--muted)">+ quando os boletos em aberto forem pagos (estimado)</span>', r.repasses_previstos, 'i') : '')
       + '</div></div>';
-    // 09/11 (Eric: "consegue colocar o valor que tem pra mim e para o Rafael? com base no saldo atual"): parte de cada dono na
-    // distribuição do dia 30 — hoje (saldo atual − o que falta pagar no mês) e se os boletos em aberto forem pagos (projetado)
+    // 09/11 (Eric: "consegue colocar o valor que tem pra mim e para o Rafael? com base no saldo atual")
     const fcDonos = (r.calculo && r.calculo.donos) || [];
     if (fcDonos.length && !r.mes_passado) {
-      // cada um arredondado; o último fica com a sobra de centavos (5.989,71 → 2.994,86 + 2.994,85, não 2 × 2.994,86)
-      const parte = v => { let resto = Math.round(v * 100);
-        return fcDonos.map((d, i) => { const c = i === fcDonos.length - 1 ? resto : Math.round(v * Number(d.pct || 0)); resto -= c;
-          return `${fcEsc(String(d.nome || '').split(' ')[0])} <b>${fcBrl(c / 100)}</b>` }).join(' · ') };
+      // 09/11 (Eric: "misturou… na tela não tá legal"): duas colunas no mesmo formato de Pagas | Falta pagar —
+      // HOJE (saldo atual − falta pagar) e FIM DO MÊS (projetado); uma linha por dono, centavo de sobra no último
+      const linhas = v => { if (!(v > 0)) return L('<span style="color:var(--muted)">ainda não sobra nada</span>', null, 'i');
+        let resto = Math.round(v * 100);
+        return fcDonos.map((d, k) => { const c = k === fcDonos.length - 1 ? resto : Math.round(v * Number(d.pct || 0)); resto -= c;
+          return L(fcEsc(String(d.nome || '').split(' ')[0]) + ` <span style="color:var(--muted)">${Math.round(Number(d.pct || 0))}%</span>`, c / 100, 'i') }).join('') };
       const hoje = Math.round((Number(r.saldo_atual) - Number(r.contas_a_pagar)) * 100) / 100, proj = Number(r.saldo_projetado);
-      h += '<div class="fc-t">Distribuição do saldo aos donos (dia 30)</div>'
-        + `<div style="font-size:13px;margin:2px 0">Com o saldo atual: ${fcBrl(r.saldo_atual)} − falta pagar ${fcBrl(r.contas_a_pagar)} = <b style="color:${hoje < 0 ? '#B42318' : 'inherit'}">${fcBrl(hoje)}</b></div>`
-        + `<div style="font-size:13px;margin:2px 0 6px 14px;color:var(--muted)">${hoje > 0 ? parte(hoje) : 'ainda não sobra nada para distribuir'}</div>`
-        + `<div style="font-size:13px;margin:2px 0">Se os boletos em aberto forem pagos (projetado): <b>${fcBrl(proj)}</b></div>`
-        + `<div style="font-size:13px;margin:2px 0 6px 14px;color:var(--muted)">${proj > 0 ? parte(proj) : 'não sobra nada para distribuir'}</div>`
-        + '<div style="font-size:11.5px;color:var(--muted)">Estimativa: o valor final sai no fechamento do dia 30, depois da conciliação e da sua aprovação da prévia.</div>';
+      h += '<div class="fc-t">Distribuição aos donos (dia 30) · estimativa</div><div class="fc-2col"><div>'
+        + L('<b>Hoje</b>', hoje, 'f') + `<div style="font-size:11.5px;color:var(--muted);margin:0 0 4px">saldo atual − falta pagar</div>` + linhas(hoje)
+        + '</div><div>' + L('<b>Fim do mês (projetado)</b>', proj, 'f') + `<div style="font-size:11.5px;color:var(--muted);margin:0 0 4px">se os boletos em aberto forem pagos</div>` + linhas(proj)
+        + '</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:4px">O valor final sai no fechamento do dia 30, depois da conciliação e da aprovação da prévia.</div>';
     }
     h += '<div class="fc-t">Boletos do mês</div>' + L('Recebido', r.recebido, 'i')
       + L(`A receber (${(r.a_receber_det || []).length} boleto(s) em aberto) · parte do fundo`, r.a_receber, 'i');
