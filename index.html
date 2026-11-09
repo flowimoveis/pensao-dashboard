@@ -2540,6 +2540,9 @@
   // ── Prévia do fechamento (Eric 27/10): o que foi pago e o que falta pagar (contas e repasses), saldo atual e projetado ──
   let fcPrevComp = null, fcPrevSeq = 0;
   const fcDia = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '';
+  // 09/11: coluna de data (dd/mm) antes da descrição, e a lista ordenada pela data
+  const fcCol = (d, atr) => `<span class="${atr ? 'fc-atr' : ''}" style="display:inline-block;min-width:46px;font-variant-numeric:tabular-nums;${atr ? '' : 'color:var(--muted);'}">${d ? String(d).slice(8, 10) + '/' + String(d).slice(5, 7) : '—'}</span>`;
+  const fcPorData = (arr, k) => [...(arr || [])].sort((a, b) => String(a[k] || '9999').localeCompare(String(b[k] || '9999')));
   const fcMesMais = (d, n) => { const [a, m] = String(d).slice(0, 7).split('-').map(Number); const x = new Date(a, m - 1 + n, 1); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-01'; };
   async function fcPrevia(fundo, comp) {
     const seq = ++fcPrevSeq, el = () => document.getElementById('fcPrev');
@@ -2586,8 +2589,9 @@ function fcPreviaHtml(r, fundo) {
       <div><div class="r">Saldo projetado · ${fcEsc(fcMes(r.competencia))}</div><div class="v" style="color:${Number(r.saldo_projetado) < 0 ? '#B42318' : 'inherit'}">${fcBrl(r.saldo_projetado)}</div></div></div>
       <div class="fc-form">Projetado = saldo atual ${fcBrl(r.saldo_atual)} + a receber do fundo nos boletos do mês em aberto ${fcBrl(r.a_receber)} − contas a pagar ${fcBrl(r.contas_a_pagar)} (inclui ${fcBrl(r.contas_estimadas || 0)} de contas ESTIMADAS pela última fatura, que somem quando a fatura real chega, e ${fcBrl(r.parceira_provisao || 0)} de provisão da parceira).</div>`;
     h += '<div class="fc-t">Contas e despesas do fundo</div><div class="fc-2col"><div>'
-      + L('<b>Pagas</b>', r.contas_pagas, 'f') + lista(r.contas_pagas_det, c => L(fcEsc(c.descricao) + ` <span style="color:var(--muted)">${fcDia(c.data)}</span>`, c.valor, 'i'), 'nenhuma paga no mês')
-      + '</div><div>' + L('<b>Falta pagar</b>', r.contas_a_pagar, 'f') + lista(r.contas_a_pagar_det, c => L(fcEsc(c.descricao) + ` <span class="${c.atrasada && !FC_SIT[c.situacao] ? 'fc-atr' : ''}" style="${c.atrasada && !FC_SIT[c.situacao] ? '' : 'color:var(--muted)'}">vence ${fcDia(c.vencimento)}</span>` + fcSit(c.situacao), c.valor, 'i'), 'nada a pagar')
+      // 09/11 (Eric): data em coluna ANTES da descrição — Pagas por data de pagamento, Falta pagar por vencimento
+      + L('<b>Pagas</b>', r.contas_pagas, 'f') + lista(fcPorData(r.contas_pagas_det, 'data'), c => L(fcCol(c.data) + fcEsc(c.descricao), c.valor, 'i'), 'nenhuma paga no mês')
+      + '</div><div>' + L('<b>Falta pagar</b>', r.contas_a_pagar, 'f') + lista(fcPorData(r.contas_a_pagar_det, 'vencimento'), c => L(fcCol(c.vencimento, c.atrasada && !FC_SIT[c.situacao]) + fcEsc(c.descricao) + fcSit(c.situacao), c.valor, 'i'), 'nada a pagar')
       + '</div></div>';
     h += '<div class="fc-t">Repasses aos donos (boletos do mês)</div><div class="fc-2col"><div>'
       + L('<b>Pagos</b>', r.repasses_pagos, 'f') + porDono(r.repasses_pagos_det, '', 'nenhum pago no mês')
