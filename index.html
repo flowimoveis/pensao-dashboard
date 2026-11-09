@@ -2693,6 +2693,19 @@ function fcPreviaHtml(r, fundo) {
       + (Number(r.repasses_a_conferir) ? L('<span style="color:var(--muted)">+ boletos pagos com repasse a conferir</span>', r.repasses_a_conferir, 'i') : '')   // Eric 04/11: falta pagar = só conferidos
       + (Number(r.repasses_previstos) ? L('<span style="color:var(--muted)">+ quando os boletos em aberto forem pagos (estimado)</span>', r.repasses_previstos, 'i') : '')
       + '</div></div>';
+    // 09/11 (Eric: "consegue colocar o valor que tem pra mim e para o Rafael? com base no saldo atual"): parte de cada dono na
+    // distribuição do dia 30 — hoje (saldo atual − o que falta pagar no mês) e se os boletos em aberto forem pagos (projetado)
+    const fcDonos = (r.calculo && r.calculo.donos) || [];
+    if (fcDonos.length && !r.mes_passado) {
+      const parte = v => fcDonos.map(d => `${fcEsc(String(d.nome || '').split(' ')[0])} <b>${fcBrl(Math.round(v * Number(d.pct || 0)) / 100)}</b>`).join(' · ');
+      const hoje = Math.round((Number(r.saldo_atual) - Number(r.contas_a_pagar)) * 100) / 100, proj = Number(r.saldo_projetado);
+      h += '<div class="fc-t">Distribuição do saldo aos donos (dia 30)</div>'
+        + `<div style="font-size:13px;margin:2px 0">Com o saldo atual: ${fcBrl(r.saldo_atual)} − falta pagar ${fcBrl(r.contas_a_pagar)} = <b style="color:${hoje < 0 ? '#B42318' : 'inherit'}">${fcBrl(hoje)}</b></div>`
+        + `<div style="font-size:13px;margin:2px 0 6px 14px;color:var(--muted)">${hoje > 0 ? parte(hoje) : 'ainda não sobra nada para distribuir'}</div>`
+        + `<div style="font-size:13px;margin:2px 0">Se os boletos em aberto forem pagos (projetado): <b>${fcBrl(proj)}</b></div>`
+        + `<div style="font-size:13px;margin:2px 0 6px 14px;color:var(--muted)">${proj > 0 ? parte(proj) : 'não sobra nada para distribuir'}</div>`
+        + '<div style="font-size:11.5px;color:var(--muted)">Estimativa: o valor final sai no fechamento do dia 30, depois da conciliação e da sua aprovação da prévia.</div>';
+    }
     h += '<div class="fc-t">Boletos do mês</div>' + L('Recebido', r.recebido, 'i')
       + L(`A receber (${(r.a_receber_det || []).length} boleto(s) em aberto) · parte do fundo`, r.a_receber, 'i');
     if ((r.a_receber_det || []).length) h += `<details style="font-size:12.5px;margin:2px 0 0 14px"><summary style="cursor:pointer;color:var(--muted)">ver boletos em aberto</summary>${r.a_receber_det.map(b =>
