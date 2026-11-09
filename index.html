@@ -2554,7 +2554,7 @@
         el().innerHTML = fcPreviaHtml(r, fundo);
         const mm = document.getElementById('fcPrevMes'), ss = document.getElementById('fcPrevSaldo');
         if (mm) mm.textContent = fcMes(r.competencia);
-        if (ss) ss.innerHTML = 'projetado <b>' + fcBrl(r.saldo_projetado) + '</b>';
+        if (ss) ss.innerHTML = (r.mes_passado ? 'saldo final <b>' : 'projetado <b>') + fcBrl(r.saldo_projetado) + '</b>';
       }
     } catch (e) { if (seq === fcPrevSeq && el()) el().innerHTML = `<div style="color:#B42318;font-size:13px">Prévia: ${fcEsc(e.message)}</div>` + fcCorpo((fcDados.fundos.find(x => x.id === fundo) || {}).previa || {}); }
   }
@@ -2585,7 +2585,9 @@ function fcPreviaHtml(r, fundo) {
       <button title="Próximo mês" onclick="fcPrevia(${fundo}, '${fcMesMais(c, 1)}')">›</button>
       ${c !== atual ? `<button onclick="fcPrevia(${fundo}, '${atual}')">voltar ao mês atual</button>` : '<span style="font-size:12px;color:var(--muted)">mês atual</span>'}
       ${r.calculo && r.calculo.fechado ? '<span class="fc-tag ok" style="font-size:11px">mês já fechado</span>' : ''}</div>`;
-    h += `<div class="fc-sal2"><div><div class="r">Saldo atual</div><div class="v">${fcBrl(r.saldo_atual)}</div></div>
+    // 09/11 (Eric): mês que já passou não se projeta — mostra o saldo do fundo no fim dele (out/26 = 0, o razão começa na virada)
+    if (r.mes_passado) h += `<div class="fc-sal2"><div><div class="r">Saldo no fim de ${fcEsc(fcMes(r.competencia))}</div><div class="v">${fcBrl(r.saldo_projetado)}</div></div></div>`;
+    else h += `<div class="fc-sal2"><div><div class="r">Saldo atual</div><div class="v">${fcBrl(r.saldo_atual)}</div></div>
       <div><div class="r">Saldo projetado · ${fcEsc(fcMes(r.competencia))}</div><div class="v" style="color:${Number(r.saldo_projetado) < 0 ? '#B42318' : 'inherit'}">${fcBrl(r.saldo_projetado)}</div></div></div>
       <div class="fc-form">Projetado = saldo atual ${fcBrl(r.saldo_atual)} + a receber do fundo nos boletos do mês em aberto ${fcBrl(r.a_receber)} − contas a pagar ${fcBrl(r.contas_a_pagar)} (inclui ${fcBrl(r.contas_estimadas || 0)} de contas ESTIMADAS pela última fatura, que somem quando a fatura real chega, e ${fcBrl(r.parceira_provisao || 0)} de provisão da parceira).</div>`;
     h += '<div class="fc-t">Contas e despesas do fundo</div><div class="fc-2col"><div>'
