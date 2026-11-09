@@ -2697,7 +2697,10 @@ function fcPreviaHtml(r, fundo) {
     // distribuição do dia 30 — hoje (saldo atual − o que falta pagar no mês) e se os boletos em aberto forem pagos (projetado)
     const fcDonos = (r.calculo && r.calculo.donos) || [];
     if (fcDonos.length && !r.mes_passado) {
-      const parte = v => fcDonos.map(d => `${fcEsc(String(d.nome || '').split(' ')[0])} <b>${fcBrl(Math.round(v * Number(d.pct || 0)) / 100)}</b>`).join(' · ');
+      // cada um arredondado; o último fica com a sobra de centavos (5.989,71 → 2.994,86 + 2.994,85, não 2 × 2.994,86)
+      const parte = v => { let resto = Math.round(v * 100);
+        return fcDonos.map((d, i) => { const c = i === fcDonos.length - 1 ? resto : Math.round(v * Number(d.pct || 0)); resto -= c;
+          return `${fcEsc(String(d.nome || '').split(' ')[0])} <b>${fcBrl(c / 100)}</b>` }).join(' · ') };
       const hoje = Math.round((Number(r.saldo_atual) - Number(r.contas_a_pagar)) * 100) / 100, proj = Number(r.saldo_projetado);
       h += '<div class="fc-t">Distribuição do saldo aos donos (dia 30)</div>'
         + `<div style="font-size:13px;margin:2px 0">Com o saldo atual: ${fcBrl(r.saldo_atual)} − falta pagar ${fcBrl(r.contas_a_pagar)} = <b style="color:${hoje < 0 ? '#B42318' : 'inherit'}">${fcBrl(hoje)}</b></div>`
