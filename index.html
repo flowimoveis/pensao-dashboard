@@ -681,9 +681,9 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && bqFoiAssinar && document.getElementById('bq').classList.contains('show')) { bqFoiAssinar = false; bqVerificar(); }
   });
-  // prévia para o Eric: pensao.flowimoveis.imb.br/?previa_bloqueio=<e-mail do login>
+  // prévia para o Eric: pensao.flowimoveis.imb.br/?previa=rafael (1º nome ou e-mail do login)
   document.addEventListener('DOMContentLoaded', async () => {
-    const pe = new URLSearchParams(location.search).get('previa_bloqueio');
+    const qs = new URLSearchParams(location.search), pe = qs.get('previa') || qs.get('previa_bloqueio');   // ?previa=rafael (o WhatsApp corta o link no '@' do e-mail)
     if (!pe || !idToken()) return;
     const r = await bqApi('bloqueio_ver', { previa_email: pe });
     if (r && r.previa && r.bloqueio) bqMostrar({ nome: r.nome, modo: r.modo, bloqueio: r.bloqueio }, pe);
