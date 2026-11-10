@@ -103,7 +103,7 @@
   .filtro-btn.green-active { background: var(--green); border-color: var(--green); color: #fff; }
 
   /* TABELA */
-  .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 4px; }
+  .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; margin-bottom: 4px; }   /* Eric 10/11: tabela larga rola em vez de cortar o botão */
   table { width: 100%; border-collapse: collapse; }
   thead tr { border-bottom: 1px solid var(--border); }
   thead th { padding: 11px 16px; text-align: left; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
@@ -157,7 +157,7 @@
   .badge-green::before { background:var(--green); }
 
   /* BOTÕES */
-  .action-btns { display: flex; gap: 6px; }
+  .action-btns { display: flex; flex-wrap: wrap; gap: 6px; }   /* Eric 10/11: 2ª Via + Cancelar + PIX quebram linha em vez de estourar a coluna */
   .btn-action { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 7px; font-size: 11px; font-weight: 500; text-decoration: none; cursor: pointer; transition: all .15s; white-space: nowrap; font-family: 'DM Sans', sans-serif; border: 1px solid transparent; line-height: 1; }
   .btn-boleto { background: var(--blue-lt); color: var(--blue); border-color: rgba(43,58,143,0.2); }
   .btn-boleto:hover { background: var(--blue); color: #fff; }
@@ -200,7 +200,7 @@
   .mob-field-value { font-size: 13px; font-weight: 500; color: var(--text); }
   .mob-field-value.red   { color: var(--red); }
   .mob-field-value.muted { color: var(--muted); font-weight: 400; }
-  .mob-btns { display: flex; gap: 8px; }
+  .mob-btns { display: flex; flex-wrap: wrap; gap: 8px; }
   .mob-btns .btn-action { flex: 1; justify-content: center; padding: 8px; font-size: 12px; }
 
   /* SKELETON */
