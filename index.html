@@ -113,6 +113,8 @@
   tbody td { padding: 12px 16px; font-size: 13px; vertical-align: middle; }
   /* Eric 10/11: folga à direita na última coluna (Ações) — o botão encostava na borda */
   .table-wrap thead th:last-child, .table-wrap tbody td:last-child { padding-right: 28px; }
+  /* Eric 10/11: em tela até 1280px (notebook com zoom) a tabela do filtro Todos passava da área — menos folga lateral nas colunas */
+  @media (max-width: 1280px) { thead th, tbody td { padding-left: 10px; padding-right: 10px; } .table-wrap thead th:last-child, .table-wrap tbody td:last-child { padding-right: 22px; } }
   .td-nome  { font-weight: 500; }
   .td-valor { font-weight: 500; white-space: nowrap; }
 
@@ -286,7 +288,7 @@
 
   /* CADASTRO DO LOCATÁRIO / TELEFONE PENDENTE */
   .nome-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--text); font-weight: 500;
-    cursor: pointer; text-align: left; display: inline-flex; align-items: center; gap: 7px;
+    cursor: pointer; text-align: left; display: inline-flex; align-items: center; gap: 4px 7px; flex-wrap: wrap;   /* Eric 10/11: selo desce p/ baixo do nome se faltar espaço */
     border-bottom: 1px dashed transparent; }
   .nome-btn:hover { color: var(--blue); border-bottom-color: var(--gray-3); }
   .tel-flag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px;
