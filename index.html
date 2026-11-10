@@ -2835,10 +2835,32 @@
     (f.fechados || []).forEach(x => meses.push({ c: x.detalhe, tag: 'Fechado em ' + new Date(x.fechado_em).toLocaleDateString('pt-BR'), ok: true }));
     document.getElementById('fcLista').innerHTML = meses.length ? meses.map((m, k) => `<div class="fc-mes ${k === 0 ? 'aberto' : ''}">
         <div class="fc-cab" onclick="this.parentElement.classList.toggle('aberto')"><b ${m.previa ? 'id="fcPrevMes"' : ''}>${fcEsc(fcMes(m.c.competencia))}</b>
-          <span><span class="fc-tag ${m.ok ? 'ok' : ''}">${fcEsc(m.previa ? 'Prévia do fechamento' : m.tag)}</span> &nbsp;<span ${m.previa ? 'id="fcPrevSaldo"' : ''}>saldo <b>${fcBrl(m.c.saldo)}</b></span></span></div>
+          <span><span class="fc-tag ${m.ok ? 'ok' : ''}">${fcEsc(m.previa ? 'Prévia do fechamento' : m.tag)}</span> &nbsp;<span ${m.previa ? 'id="fcPrevSaldo"' : ''}>saldo <b>${fcBrl(m.c.saldo)}</b></span>
+            &nbsp;<button class="btn-action btn-boleto" onclick="event.stopPropagation();fcRelatorio(${f.id},'${String(m.c.competencia).slice(0, 10)}',this)" title="o relatório completo, o mesmo que vai aos donos">📄 Relatório (PDF)</button></span></div>
         <div class="fc-corpo">${m.previa ? '<div id="fcPrev">Carregando a prévia…</div>' : fcCorpo(m.c)}</div></div>`).join('')
       : '<div style="color:var(--muted);font-size:13px">Nenhum fechamento ainda: o primeiro é o de novembro/2026, no último dia do mês.</div>';
     if (meses.length && meses[0].previa) fcPrevia(f.id, fcPrevComp || meses[0].c.competencia);
+  }
+  // Eric 10/11: relatório completo do fechamento (o mesmo PDF dos donos) — o robô gera em até 1 min; baixa direto (link assinado de 1 dia)
+  async function fcRelatorio(fundo, comp, btn) {
+    const txt = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Gerando (até 1 min)…';
+    try {
+      const r = await ppChamar('relatorio_pedir', { fundo, competencia: comp });
+      for (let k = 0; k < 60; k++) {
+        await new Promise(ok => setTimeout(ok, 3000));
+        const st = await ppChamar('relatorio_status', { id: r.id });
+        if (st.status === 'pronto' && st.link) {
+          const blob = await (await fetch(st.link)).blob();
+          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+          a.download = `Fechamento ${fundo === 1 ? 'Pensao 118' : 'Pensoes 210 e 222'} ${comp.slice(0, 7)}.pdf`;
+          document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+          toast('Relatório baixado'); return;
+        }
+        if (st.status === 'erro') throw new Error(st.erro || 'o robô não gerou');
+      }
+      throw new Error('demorou demais — tente de novo em 1 minuto');
+    } catch (e) { toast('Não gerou: ' + e.message); }
+    finally { btn.disabled = false; btn.textContent = txt; }
   }
   // ── Prévia do fechamento (Eric 27/10): o que foi pago e o que falta pagar (contas e repasses), saldo atual e projetado ──
   let fcPrevComp = null, fcPrevSeq = 0;
