@@ -416,6 +416,49 @@
     .cards-mobile { display: flex; }
     .filtro-btn { font-size: 11px; padding: 5px 10px; }
   }
+
+  /* ── BLOQUEIO POR ASSINATURA PENDENTE (Eric 09/11/2026) ─────────────────────────────── */
+  .bq { position: fixed; inset: 0; z-index: 9000; background: var(--gray-1); overflow-y: auto; -webkit-overflow-scrolling: touch; display: none; }
+  .bq.show { display: block; }
+  .bq-top { position: sticky; top: 0; background: var(--white); border-bottom: 1px solid var(--border); height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 2; }
+  .bq-top .logo img { height: 30px; }
+  .bq-sair { font-size: 13px; color: var(--muted); text-decoration: none; padding: 8px 4px; cursor: pointer; }
+  .bq-wrap { max-width: 520px; margin: 0 auto; padding: 24px 16px 56px; }
+  .bq-previa { background: var(--blue-lt); color: var(--blue); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.45; margin-bottom: 18px; display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+  .bq-previa button { flex-shrink: 0; border: 1px solid var(--blue); background: var(--white); color: var(--blue); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+  .bq-ico { width: 56px; height: 56px; border-radius: 16px; background: var(--amber-lt); border: 1px solid var(--amber-border); color: var(--amber); display: flex; align-items: center; justify-content: center; margin: 4px 0 16px; }
+  .bq h1 { font-size: 24px; line-height: 1.2; font-weight: 600; letter-spacing: -.4px; color: var(--text); margin-bottom: 10px; }
+  .bq-sub { font-size: 15px; line-height: 1.5; color: var(--muted); margin-bottom: 22px; }
+  .bq-sub b { color: var(--text); font-weight: 500; }
+  .bq-card { background: var(--white); border: 1px solid var(--border); border-radius: 16px; padding: 18px 18px 16px; margin-bottom: 14px; box-shadow: 0 2px 10px rgba(43,58,143,0.05); animation: fadeUp .3s both; }
+  .bq-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .bq-tag { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--blue-mid); background: var(--blue-lt); border-radius: 999px; padding: 4px 10px; }
+  .bq-atraso { font-size: 12px; font-weight: 500; color: var(--red); background: var(--red-lt); border: 1px solid var(--red-border); border-radius: 999px; padding: 3px 10px; }
+  .bq-nome { font-size: 18px; font-weight: 500; margin-bottom: 12px; overflow-wrap: anywhere; }
+  .bq-passo { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.4; padding: 5px 0; }
+  .bq-passo .d { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; margin-top: 0; }
+  .bq-passo.ok .d { background: var(--green-lt); color: var(--green); border: 1px solid var(--green-border); }
+  .bq-passo.falta .d { background: var(--amber-lt); color: var(--amber); border: 1px solid var(--amber-border); }
+  .bq-passo.falta b { color: var(--amber); font-weight: 500; }
+  .bq-passo.outro { color: var(--muted); font-size: 13px; }
+  .bq-passo.outro .d { background: var(--gray-1); border: 1px solid var(--border); }
+  .bq-cod { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--gray-1); border: 1px dashed var(--gray-3); border-radius: 12px; padding: 10px 12px; margin: 14px 0 12px; }
+  .bq-cod .r { font-size: 12px; color: var(--muted); }
+  .bq-cod .v { font-size: 22px; font-weight: 600; letter-spacing: 3px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .bq-cod button { border: 1px solid var(--border); background: var(--white); color: var(--blue); border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .bq-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 54px; border-radius: 14px; background: var(--blue); color: #fff; font-family: 'DM Sans', sans-serif; font-size: 17px; font-weight: 500; text-decoration: none; border: 0; cursor: pointer; box-shadow: 0 6px 18px rgba(43,58,143,0.25); transition: transform .12s, background .12s; }
+  .bq-btn:active { transform: scale(.98); background: var(--blue-mid); }
+  .bq-dica { font-size: 12.5px; color: var(--muted); text-align: center; margin-top: 8px; line-height: 1.4; }
+  .bq-email { font-size: 14px; line-height: 1.5; background: var(--gray-1); border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
+  .bq-btn2 { width: 100%; min-height: 50px; border-radius: 14px; background: var(--white); color: var(--blue); border: 1.5px solid rgba(43,58,143,0.35); font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 500; cursor: pointer; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .bq-btn2:disabled { opacity: .65; cursor: default; }
+  .bq-msg { font-size: 14px; line-height: 1.45; margin-top: 12px; padding: 0 2px; min-height: 20px; }
+  .bq-msg.ok { color: var(--green); } .bq-msg.aviso { color: var(--amber); } .bq-msg.info { color: var(--muted); }
+  .bq-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(43,58,143,0.25); border-top-color: var(--blue); animation: bqgira .8s linear infinite; display: inline-block; }
+  @keyframes bqgira { to { transform: rotate(360deg); } }
+  .bq-rodape { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.5; margin-top: 26px; }
+  .bq-ok-ico { width: 56px; height: 56px; border-radius: 50%; background: var(--green-lt); border: 1px solid var(--green-border); color: var(--green); display: flex; align-items: center; justify-content: center; margin: 40px auto 14px; font-size: 26px; }
+  @media (min-width: 641px) { .bq-wrap { padding-top: 40px; } .bq h1 { font-size: 28px; } }
 </style>
 <script>
   // ── LOGIN PELO GOOGLE (Eric 13/10/2026: "igual ao contas de casa") ─────────────────────────────────────
@@ -424,6 +467,8 @@
   // Enquanto GOOGLE_CLIENT_ID estiver vazio, o portal funciona como antes (token antigo) — transição.
   const GOOGLE_CLIENT_ID = '143326879297-kmts8pj8cubes2gglr7q4sj91nq9r0br.apps.googleusercontent.com';   // cliente 'contasdecasa' (GCP flow-seo-501612): só confirma o e-mail; quem entra é a lista da pensão
   const PENSAO_HOOK = 'https://n8n.flowimoveis.imb.br/webhook/pensao';
+  const BQ_LIVRES = ['quem_sou', 'bloqueio_ver', 'bloqueio_verificar'];   // o que a tela de assinatura pendente pode chamar
+  let bqAtivo = false;
   function idToken() { try { return sessionStorage.getItem('pensao_idt') || ''; } catch (e) { return ''; } }
   (function () {
     if (!GOOGLE_CLIENT_ID) return;
@@ -441,9 +486,39 @@
         if (opt.body instanceof URLSearchParams) { opt.body.delete('token'); opt.body.set('id_token', idt); }
         else u.searchParams.set('id_token', idt);
         url = u.toString();
-        return original(url, opt).then(r => { if (r.status === 401) { const tinha = !!idt; try { sessionStorage.removeItem('pensao_idt'); } catch (e) {} loginMostrar(tinha ? 'Sua sessão expirou. Entre de novo.' : ''); } return r; });
+        const enviar = () => original(url, opt).then(r => {
+          if (r.status === 401) {
+            // barrado no meio da sessão: os webhooks laterais respondem 401 — confere antes de derrubar o login
+            if (bqAtivo) return r;
+            return bqPortao(true).then(b => { if (b) { bqMostrar(b); return r; }
+              const tinha = !!idt; try { sessionStorage.removeItem('pensao_idt'); } catch (e) {} loginMostrar(tinha ? 'Sua sessão expirou. Entre de novo.' : ''); return r; });
+          }
+          if (u.pathname.endsWith('/pensao-api') && !bqAtivo) r.clone().json().then(j => { if (j && j.erro === 'bloqueado_assinatura') bqPortao(true).then(b => b && bqMostrar(b)); }).catch(() => {});
+          return r;
+        });
+        // Eric 09/11: antes da 1ª chamada do painel, pergunta UMA vez se este login está barrado por assinatura pendente
+        const acao = opt.body instanceof URLSearchParams ? opt.body.get('acao') : null;
+        if (idt && !BQ_LIVRES.includes(acao)) return bqPortao().then(b => {
+          if (b) { bqMostrar(b); return new Response('{"ok":false,"erro":"bloqueado_assinatura"}', { status: 423, headers: { 'Content-Type': 'application/json' } }); }
+          return enviar();
+        });
+        return enviar();
       }
       return original(url, opt);
+    };
+    // ── BLOQUEIO POR ASSINATURA PENDENTE (Eric 09/11/2026) ──────────────────────────────────────────────
+    // "locatário assinou há mais de 24h e falta a assinatura do Rafael ou da Ariane → bloqueia o acesso; assine para liberar".
+    // Só quem falta assinar é barrado (regra no banco: adm.pensao_portal_bloqueio). O banco recusa toda ação dele com
+    // erro 'bloqueado_assinatura' (inclusive o quem_sou dos webhooks laterais); esta tela é só a cara disso.
+    let bqProm = null;
+    window.bqPortao = function (forcar) {
+      if (forcar || !bqProm) bqProm = original(PENSAO_HOOK + '-api', { method: 'POST', body: new URLSearchParams({ acao: 'quem_sou', dados: '{}', id_token: idToken() }) })
+        .then(r => r.json()).then(j => (j && j.erro === 'bloqueado_assinatura' && j.bloqueio) ? j : null).catch(() => null);
+      return bqProm;
+    };
+    window.bqApi = function (acao, dados) {
+      return original(PENSAO_HOOK + '-api', { method: 'POST', body: new URLSearchParams({ acao, dados: JSON.stringify(dados || {}), id_token: idToken() }) })
+        .then(r => r.json()).catch(() => ({ ok: false, erro: 'sem conexão' }));
     };
   })();
   let loginIniciado = false;
@@ -464,6 +539,10 @@
   async function loginOk(resp) {
     try { sessionStorage.setItem('pensao_idt', resp.credential); } catch (e) {}
     const r = await fetch(PENSAO_HOOK + '-api', { method: 'POST', body: new URLSearchParams({ acao: 'quem_sou', dados: '{}', id_token: resp.credential }) }).then(x => x.json()).catch(() => ({}));
+    if (!r.ok && r.erro === 'bloqueado_assinatura') {   // entra, mas cai na tela de assinatura pendente
+      try { localStorage.setItem('pensao_quem', r.nome); sessionStorage.setItem('pensao_nome', r.nome); } catch (e) {}
+      location.reload(); return;
+    }
     if (!r.ok) {
       try { sessionStorage.removeItem('pensao_idt'); } catch (e) {}
       if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
@@ -489,6 +568,127 @@
     const el = document.getElementById('rtQuemNome'); if (el && nome) el.textContent = nome;
     const tr = document.querySelector('a[onclick^="trocarQuem"]'); if (tr) { tr.textContent = 'sair'; tr.setAttribute('onclick', 'loginSair();return false'); }
   });
+
+  // ── TELA "FALTA A SUA ASSINATURA" (Eric 09/11/2026) ─────────────────────────────────────────────────
+  let bqDados = null, bqPrevia = '', bqTimer = null, bqFoiAssinar = false, bqVerificando = false;
+  const bqEsc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const BQ_PAPEL = { locador: 'locador', testemunha: 'testemunha' };
+  function bqQuando(iso) {
+    const d = new Date(iso); if (isNaN(d)) return '';
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+  function bqHa(iso) {
+    const h = Math.floor((Date.now() - new Date(iso)) / 3600000);
+    if (h < 48) return 'há ' + Math.max(h, 1) + ' h';
+    return 'há ' + Math.floor(h / 24) + ' dias';
+  }
+  function bqNomeOutro(o) { const n = /^ariane/i.test(o.nome || '') ? 'Dra. Ariane' : (o.nome || '').split(' ')[0]; return n + ' (' + (BQ_PAPEL[o.papel] || o.papel) + ')'; }
+  function bqCartao(c, i) {
+    const eu = c.eu || {}, outros = c.outros_faltam || [];
+    const papel = BQ_PAPEL[eu.papel] || eu.papel || '';
+    let acao;
+    if (eu.link) {
+      acao = `<div class="bq-cod"><div><div class="r">Código de acesso (a D4Sign vai pedir)</div><div class="v">${bqEsc(eu.codigo || '—')}</div></div>
+          ${eu.codigo ? `<button type="button" onclick="bqCopiar('${bqEsc(eu.codigo)}', this)">Copiar</button>` : ''}</div>
+        <a class="bq-btn" href="${bqEsc(eu.link)}" target="_blank" rel="noopener" onclick="bqFoiAssinar = true">
+          Assinar agora <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a>
+        <div class="bq-dica">Abre a D4Sign numa aba nova. Depois de assinar, volte aqui.</div>`;
+    } else if (eu.por_email) {
+      acao = `<div class="bq-email">A sua assinatura é pelo <b>e-mail da D4Sign</b>${eu.email ? ' (' + bqEsc(eu.email) + ')' : ''}. Abra a mensagem da D4Sign e assine; depois volte aqui.</div>`;
+    } else {
+      acao = `<div class="bq-email">O link de assinatura ainda não ficou pronto. Fale com o Eric.</div>`;
+    }
+    return `<div class="bq-card" style="animation-delay:${i * 60}ms">
+      <div class="bq-card-top"><span class="bq-tag">Pensão ${bqEsc(c.pensao || '?')}${c.quarto ? ' · Quarto ' + bqEsc(c.quarto) : ''}</span>
+        <span class="bq-atraso">parado ${bqHa(c.locatario_assinou_em)}</span></div>
+      <div class="bq-nome">${bqEsc(c.locatario)}</div>
+      <div class="bq-passo ok"><span class="d">✓</span><span>Locatário assinou em ${bqQuando(c.locatario_assinou_em)}</span></div>
+      <div class="bq-passo falta"><span class="d">!</span><span><b>Falta a sua assinatura</b> (${bqEsc(papel)})</span></div>
+      ${outros.map(o => `<div class="bq-passo outro"><span class="d"></span><span>Também falta: ${bqEsc(bqNomeOutro(o))}</span></div>`).join('')}
+      ${acao}
+    </div>`;
+  }
+  function bqMostrar(j, previa) {
+    const b = j && j.bloqueio; if (!b || !(b.contratos || []).length) return;
+    bqDados = j; bqAtivo = !previa; bqPrevia = previa || '';
+    const cs = b.contratos, nome = (j.nome || '').split(' ')[0];
+    document.getElementById('bqCorpo').innerHTML = `
+      ${previa ? `<div class="bq-previa"><span><b>Prévia</b> — é assim que ${bqEsc(nome || 'o usuário')} vê o portal${b.ativo ? '' : ' quando o bloqueio estiver ligado (agora: <b>' + bqEsc(j.modo || b.modo) + '</b>, ninguém barrado)'}. Nada é enviado.</span><button type="button" onclick="bqFechar()">Fechar</button></div>` : ''}
+      <div class="bq-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+      <h1 id="bqTit">Falta a sua assinatura para liberar o painel</h1>
+      <p class="bq-sub">${nome ? bqEsc(nome) + ', ' : ''}${cs.length === 1 ? '<b>1 contrato</b> da Pensão está' : '<b>' + cs.length + ' contratos</b> da Pensão estão'} sem a sua assinatura há mais de ${bqEsc(b.horas || 24)} horas — o locatário já assinou. <b>Assine para liberar o acesso</b>: o painel volta na hora.</p>
+      ${cs.map(bqCartao).join('')}
+      <button class="bq-btn2" id="bqVerif" type="button" onclick="bqVerificar()">Já assinei — verificar</button>
+      <div class="bq-msg info" id="bqMsg" aria-live="polite"></div>
+      <div class="bq-rodape">Nada foi perdido: boletos, contas e inquilinos continuam aqui.<br>Dúvida? Fale com o Eric.</div>`;
+    const el = document.getElementById('bq'); el.classList.add('show'); el.scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+    const lb = document.getElementById('loginBox'); if (lb && !previa) lb.style.display = 'none';
+    clearInterval(bqTimer);
+    if (!previa) bqTimer = setInterval(() => bqConferir(false), 60000);   // o aviso da D4Sign chega sozinho: libera sem clique
+  }
+  function bqFechar() { document.getElementById('bq').classList.remove('show'); document.body.style.overflow = ''; clearInterval(bqTimer); bqAtivo = false; }
+  async function bqCopiar(t, btn) {
+    try { await navigator.clipboard.writeText(t); btn.textContent = 'Copiado ✓'; } catch (e) { btn.textContent = t; }
+    setTimeout(() => { btn.textContent = 'Copiar'; }, 2500);
+  }
+  function bqMsg(txt, cls, spin) {
+    const m = document.getElementById('bqMsg'); if (!m) return;
+    m.className = 'bq-msg ' + (cls || 'info'); m.innerHTML = (spin ? '<span class="bq-spin"></span> ' : '') + txt;
+  }
+  function bqLiberado() {
+    clearInterval(bqTimer);
+    if (bqPrevia) { bqMsg('Na prévia: a assinatura entrou e o acesso seria liberado agora.', 'ok'); return; }
+    document.getElementById('bqCorpo').innerHTML = `<div class="bq-ok-ico">✓</div>
+      <h1 style="text-align:center">Assinatura confirmada</h1><p class="bq-sub" style="text-align:center">Obrigado! Liberando o painel…</p>`;
+    setTimeout(() => location.reload(), 1400);
+  }
+  async function bqConferir(mostrar) {
+    const r = await bqApi('bloqueio_ver', bqPrevia ? { previa_email: bqPrevia } : {});
+    if (r && r.ok && !r.bloqueio) { bqLiberado(); return null; }
+    return r && r.bloqueio;
+  }
+  async function bqVerificar() {
+    if (bqVerificando) return;
+    bqVerificando = true;
+    const btn = document.getElementById('bqVerif'); btn.disabled = true;
+    const t0 = Date.now();
+    bqMsg('Consultando a D4Sign…', 'info', true);
+    try {
+      const r = await bqApi('bloqueio_verificar', bqPrevia ? { previa_email: bqPrevia } : {});
+      if (!r.ok) { bqMsg('Não consegui consultar agora (' + bqEsc(r.erro || 'erro') + '). Tente de novo em 1 minuto.', 'aviso'); return; }
+      if (r.livre) { bqLiberado(); return; }
+      for (let i = 0; i < 30; i++) {          // até ~2 min: o robô consulta a D4Sign a cada minuto
+        await new Promise(ok => setTimeout(ok, 4000));
+        const b = await bqConferir(false);
+        if (!b) return;
+        const vs = (b.contratos || []).map(c => c.verificacao).filter(v => v && v.status !== 'pendente' && new Date(v.pedido_em) >= t0 - 150000);
+        if (vs.length === (b.contratos || []).length) {
+          if (vs.some(v => v.status === 'sem_cota'))
+            bqMsg('A D4Sign está no limite de consultas desta hora. Se você já assinou, o painel libera sozinho assim que o aviso dela chegar (alguns minutos) — pode deixar esta tela aberta.', 'aviso');
+          else if (vs.some(v => v.status === 'erro'))
+            bqMsg('A D4Sign não respondeu agora. Tente de novo em alguns minutos — se já assinou, o painel também libera sozinho.', 'aviso');
+          else
+            bqMsg('A D4Sign ainda não mostra a sua assinatura. Toque em <b>Assinar agora</b>, conclua até o fim (código + confirmação) e verifique de novo.', 'aviso');
+          return;
+        }
+        if (i === 6) bqMsg('Ainda consultando a D4Sign… (pode levar até 1 minuto)', 'info', true);
+      }
+      bqMsg('A consulta está demorando. Se você já assinou, o painel libera sozinho em alguns minutos.', 'aviso');
+    } finally { bqVerificando = false; btn.disabled = false; }
+  }
+  // voltou da aba da D4Sign depois de tocar em "Assinar agora": verifica sozinho
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && bqFoiAssinar && document.getElementById('bq').classList.contains('show')) { bqFoiAssinar = false; bqVerificar(); }
+  });
+  // prévia para o Eric: pensao.flowimoveis.imb.br/?previa_bloqueio=<e-mail do login>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const pe = new URLSearchParams(location.search).get('previa_bloqueio');
+    if (!pe || !idToken()) return;
+    const r = await bqApi('bloqueio_ver', { previa_email: pe });
+    if (r && r.previa && r.bloqueio) bqMostrar({ nome: r.nome, modo: r.modo, bloqueio: r.bloqueio }, pe);
+    else if (r && r.previa) toast('Prévia: ' + (r.nome || pe) + ' não tem assinatura pendente há +24h');
+  });
 </script>
 </head>
 <body>
@@ -499,6 +699,16 @@
     <div id="loginBtn" style="display:flex;justify-content:center;min-height:44px"></div>
     <div id="loginMsg" style="font-size:13px;color:#B91C1C;margin-top:14px"></div>
   </div>
+</div>
+
+
+<!-- Eric 09/11/2026: assinatura da casa pendente há +24h com o locatário já assinado ⇒ só quem falta assinar vê esta tela (o banco barra o resto) -->
+<div class="bq" id="bq" role="dialog" aria-modal="true" aria-labelledby="bqTit">
+  <div class="bq-top">
+    <div class="logo"><img src="logo.jpg" alt="Flow Imóveis" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><span class="logo-fallback" style="display:none">Flow</span><div class="logo-divider"></div><span class="logo-sub">Pensão</span></div>
+    <a class="bq-sair" onclick="loginSair();return false" href="#">Sair</a>
+  </div>
+  <div class="bq-wrap" id="bqCorpo"></div>
 </div>
 
 <div class="toast" id="toast"></div>
