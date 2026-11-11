@@ -756,6 +756,8 @@
     <div class="modal-sub" id="telSub"></div>
     <div class="rb-det-grid" id="telCampos"></div>
     <div class="rb-det-sep"></div>
+    <p class="modal-ajuda" id="telAtlasNota" style="display:none;margin-top:14px">Contrato criado no Atlas: o telefone vem da ficha do contrato. Para trocar, peça à Flow (o cadastro fica no Atlas).</p>
+    <div id="telEditar">
     <label class="modal-label" for="telInput" style="margin-top:14px">Telefone (WhatsApp)</label>
     <input type="tel" id="telInput" class="modal-input" placeholder="(11) 91234-5678"
            inputmode="numeric" maxlength="16" autocomplete="off">
@@ -763,8 +765,9 @@
     <label class="modal-label" for="telPor">Quem está atualizando</label>
     <input type="text" id="telPor" class="modal-input" placeholder="seu nome" maxlength="60" autocomplete="off">
     <p class="modal-erro" id="telErro"></p>
+    </div>
     <div class="modal-btns">
-      <button class="btn-modal btn-cancel" onclick="telFechar()">Cancelar</button>
+      <button class="btn-modal btn-cancel" onclick="telFechar()">Fechar</button>
       <button class="btn-modal btn-ok" id="telBtnSalvar" onclick="telSalvar()">Salvar telefone</button>
     </div>
   </div>
@@ -1387,7 +1390,7 @@
   function nomeHTML(d, texto) {
     const alerta = telFalta(d);
     const nome   = texto!==undefined ? texto : (d.nome_cliente || d.nome_locatario || '—');
-    const id     = esc(d.id_contrato || '');
+    const id     = esc(chaveCad(d));   // Eric 11/11: contrato nascido no Atlas não tem nº da SL
     return '<button class="nome-btn" onclick="telAbrir(\''+id+'\')" title="Abrir cadastro do locatário">'+
              esc(nome)+
              (alerta ? '<span class="tel-flag">'+esc(telMotivo(d))+'</span>' : '')+
@@ -1399,30 +1402,39 @@
            '<div class="rb-det-val '+(cls||'')+'">'+esc(valor||'—')+'</div></div>';
   }
 
+  // chave do cadastro: nº do contrato na SL; contrato nascido no Atlas (sem SL) usa 'atlas<id>' (Eric 11/11, 210-13 Romerito)
+  function chaveCad(d) { return d.id_contrato ? String(d.id_contrato) : (d.atlas_contrato_id ? 'atlas' + d.atlas_contrato_id : ''); }
   function telAbrir(idContrato) {
-    const d = todos.find(x => String(x.id_contrato)===String(idContrato));
+    const d = todos.find(x => chaveCad(x)===String(idContrato));
     if (!d) { toast('Cadastro não encontrado'); return; }
     telAtual = d;
 
     document.getElementById('telNome').textContent = d.nome_locatario || d.nome_cliente || '—';
     document.getElementById('telSub').textContent  = (d.identificador || d.imovel || '') +
-      (d.id_contrato ? ' · contrato ' + d.id_contrato : '');
+      (d.id_contrato ? ' · contrato ' + d.id_contrato : ' · contrato no Atlas');
+    // Eric 11/11: contrato do Atlas — o telefone vem do contrato; a troca pelo portal grava no cadastro da SL, então não oferece
+    const doAtlas = !d.id_contrato;
+    document.getElementById('telEditar').style.display = doAtlas ? 'none' : '';
+    document.getElementById('telBtnSalvar').style.display = doAtlas ? 'none' : '';
+    document.getElementById('telAtlasNota').style.display = doAtlas ? '' : 'none';
 
     const origem = !d.telefone ? '<span class="tel-origem vazio">não cadastrado</span>'
                  : d.telefone_origem==='manual'
                    ? '<span class="tel-origem manual">preenchido no portal</span>'
-                   : '<span class="tel-origem">veio da Superlógica</span>';
+                   : d.telefone_origem==='atlas'
+                     ? '<span class="tel-origem">veio do contrato (Atlas)</span>'
+                     : '<span class="tel-origem">veio da Superlógica</span>';
 
     document.getElementById('telCampos').innerHTML =
       '<div class="rb-det-item full"><div class="rb-det-label">Telefone atual</div>'+
         '<div class="tel-atual"><div class="rb-det-val grande">'+esc(fmtTel(d.telefone))+'</div>'+origem+'</div>'+
         (d.telefone_manual_por ? '<div class="rb-det-label" style="margin-top:4px">por '+esc(d.telefone_manual_por)+'</div>' : '')+
       '</div>'+
-      telCampo('CPF', d.cpf_locatario)+
+      telCampo('CPF', d.cpf_locatario || d.cpf_locatario_atlas)+
       telCampo('E-mail', d.email_locatario || d.email)+
       telCampo('Imóvel', d.imovel)+
-      telCampo('Aluguel', d.valor_aluguel ? fmtBRL(d.valor_aluguel) : '—')+
-      telCampo('Vencimento', d.dia_vencimento ? 'dia '+d.dia_vencimento : '—')+
+      telCampo('Aluguel', (d.valor_aluguel || d.aluguel_atlas) ? fmtBRL(d.valor_aluguel || d.aluguel_atlas) : '—')+
+      telCampo('Vencimento', (d.dia_vencimento || d.dia_vencimento_atlas) ? 'dia '+(d.dia_vencimento || d.dia_vencimento_atlas) : '—')+
       telCampo('Proprietário', d.proprietario);
 
     document.getElementById('telInput').value = d.telefone ? fmtTel(d.telefone) : '';
