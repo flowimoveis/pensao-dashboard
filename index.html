@@ -3096,7 +3096,7 @@ function fcPreviaHtml(r, fundo) {
   (function () {
     // abre na Capa (Eric 11/11; antes Atrasos, 13/10); link com #aba abre direto na aba pedida
     const ini = (location.hash || '').slice(1);
-    abaIr(ABAS_OK.includes(ini) ? ini : 'capa', true);
+    abaIr(ABAS_OK.includes(ini) ? ini : 'capa');   // Eric 11/11: o endereço mostra a aba (pensao.flowimoveis.imb.br/#capa)
   })();
 
   carregar();
