@@ -785,6 +785,7 @@
 
 <main>
   <nav class="abas" id="abas" role="tablist">
+    <button class="aba" data-aba="capa" onclick="abaIr('capa')">🏠 Capa</button>
     <button class="aba" data-aba="atrasos" onclick="abaIr('atrasos')">⏰ Atrasos</button>
     <button class="aba" data-aba="pessoas" onclick="abaIr('pessoas')">👥 Pessoas <span class="aba-n" id="abaNPessoas"></span></button>
     <button class="aba" data-aba="contas" onclick="abaIr('contas')">⚡ Contas e rateio <span class="aba-n" id="abaNContas"></span></button>
@@ -949,6 +950,19 @@
     </div>
   </div>
 
+
+  <!-- Eric 11/11: capa — o resumo de cada pensão num olhar (atraso, vagos, pessoas do mês) e de cada fundo (saldo e projetado) -->
+  <div class="section aba-sec" data-aba="capa">
+    <div class="atrasos-header">
+      <div class="label">Resumo das pensões</div>
+      <div class="sync-info"><div class="sync-dot loading" id="cpDot"></div><span id="cpSync">Carregando...</span></div>
+    </div>
+    <div id="cpOlx" style="display:none;background:#FEF2F2;border:1px solid #FCA5A5;color:#991B1B;border-radius:12px;padding:12px 16px;margin-bottom:12px;font-size:14px"></div>
+    <div id="cpTopo" class="metrics-grid"></div>
+    <div id="cpPensoes" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:14px 0"></div>
+    <div class="label" style="margin:18px 0 8px">Fundos · mês atual</div>
+    <div id="cpFundos" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px"></div>
+  </div>
 
   <div class="section aba-sec" data-aba="atrasos">
     <div class="atrasos-header">
@@ -1533,6 +1547,7 @@
       }
       renderMetricas();
       renderTudo();
+      cpRender();
       const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
       dot.className='sync-dot ok'; txt.textContent='Atualizado às '+hora;
     } catch(e) {
@@ -1587,6 +1602,7 @@
     document.getElementById('rbMPendSub').textContent = pend.length + ' solicitaç' + (pend.length===1?'ão':'ões');
     document.getElementById('rbMQtd').textContent     = pend.length;
     abaBadge('abaNReemb', pend.length);
+    cpRender();
     document.getElementById('rbMQtdSub').textContent  = pend.length === 1 ? 'aguardando pagamento' : 'aguardando pagamento';
     document.getElementById('rbMPago').textContent    = fmtBRL(totMes);
     document.getElementById('rbMPagoSub').textContent = pagosMes.length + ' pag' + (pagosMes.length===1?'a':'as') + ' neste mês';
@@ -1962,6 +1978,7 @@
       html += '<div class="pp-linha"><span class="pp-q">' + esc(q) + '</span><span class="pp-nome" title="' + esc(i.locatario_nome) + '">' +
               '<button class="nome-btn" onclick="ppCadastro(' + Number(i.contrato_id) + ')">' + esc(i.locatario_nome) + '</button></span><span class="pp-info">' + info + '</span>' + campo + '</div>';
     });
+    cpRender();
     document.getElementById('ppLista').innerHTML = html || '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum contrato neste mês.</div>';
     ppAviso();
   }
@@ -2691,10 +2708,78 @@
     } catch (e) { if (w) w.close(); alert('Não consegui abrir o formulário: ' + e.message); }
   }
 
+  // ── Capa (Eric 11/11: "isso precisa virar uma aba de capa com outros indicadores, como valores em atraso por pensão") ──
+  // Lê os MESMOS dados das abas (Atrasos = todos, Pessoas = ppDados, Reembolsos = rbTodos, Fechamentos = fechamento_previa): o número da capa bate com a aba.
+  let cpFundosDados = null, cpFundosQuando = 0;
+  const cpCard = (titulo, corpo, aba) => `<div class="metric-card" style="cursor:${aba ? 'pointer' : 'default'}" ${aba ? `onclick="abaIr('${aba}')"` : ''}>
+      <div class="metric-label" style="font-weight:700;text-transform:uppercase;letter-spacing:.5px">${titulo}</div>${corpo}</div>`;
+  const cpLinha = (rot, val, cor, aba) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;border-top:1px solid var(--border);${aba ? 'cursor:pointer' : ''}" ${aba ? `onclick="event.stopPropagation();abaIr('${aba}')"` : ''}>
+      <span style="color:var(--muted)">${rot}</span><span style="font-weight:600;text-align:right;color:${cor || 'var(--text)'}">${val}</span></div>`;
+  function cpRender() {
+    const el = document.getElementById('cpPensoes'); if (!el) return;
+    const atr = todos.filter(d => d._status === 'EM ATRASO'), hojeV = todos.filter(d => d._status === 'VENCE HOJE');
+    const pensao = d => String(d.imovel || '').split('-')[0];
+    const itens = (ppDados && ppDados.itens) || [], vagos = (ppDados && ppDados.vagos) || [];
+    const ims = [...new Set([...todos.map(pensao), ...itens.map(i => String(i.imovel)), ...vagos.map(v => String(v.imovel))])].filter(x => /^\d+$/.test(x)).sort();
+    const soma = l => l.reduce((t, d) => t + Number(d.valor_atualizado || d.valor || 0), 0);
+    const parado = l => l.reduce((t, v) => t + Number(v.ultimo_aluguel || v.media_predio || 0), 0);
+    // topo: total em atraso · vence hoje · quartos vagos · reembolsos pendentes
+    const rbPend = rbTodos.filter(r => !r.pago_em);
+    const maior = atr.length ? Math.max(...atr.map(d => Number(d.dias_atraso || 0))) : 0;
+    document.getElementById('cpTopo').innerHTML =
+      cpCard('Em atraso', `<div class="metric-value red">${fmtBRL(soma(atr))}</div><div class="metric-sub">${atr.length} boleto(s)${maior ? ' · maior atraso ' + diasLabel(maior) : ''}</div>`, 'atrasos') +
+      cpCard('Vence hoje', `<div class="metric-value amber">${fmtBRL(soma(hojeV))}</div><div class="metric-sub">${hojeV.length} boleto(s)</div>`, 'atrasos') +
+      cpCard('Quartos vagos', ppDados ? `<div class="metric-value ${vagos.length ? 'red' : ''}">${vagos.length}</div><div class="metric-sub">${fmtBRL(parado(vagos))}/mês parado</div>` : '<div class="metric-value">—</div>', 'pessoas') +
+      cpCard('Reembolsos pendentes', `<div class="metric-value ${rbPend.length ? 'blue' : ''}">${fmtBRL(rbPend.reduce((t, r) => t + Number(r.valor || 0), 0))}</div><div class="metric-sub">${rbPend.length} solicitaç${rbPend.length === 1 ? 'ão' : 'ões'}</div>`, 'reembolsos');
+    // Eric 11/11: 3 ou mais quartos vagos (somando as pensões) → recomenda ativar a OLX (o robô pensao-alerta-vagos avisa o Rafael no grupo)
+    const olx = document.getElementById('cpOlx'), atr30 = new Set(atr.filter(d => Number(d.dias_atraso || 0) > 30).map(d => d.imovel)).size;
+    olx.style.display = ppDados && vagos.length >= 3 ? 'block' : 'none';
+    if (ppDados && vagos.length >= 3) olx.innerHTML = `📣 <b>${vagos.length} quartos vagos</b>${atr30 ? ` e ${atr30} com atraso acima de 30 dias` : ''}: <b>recomenda-se ativar o anúncio da OLX.</b>`;
+    // uma ficha por pensão
+    const mesPp = ppDados && ppDados.competencia ? ppNomeMes(String(ppDados.competencia).slice(0, 7)) : '';
+    el.innerHTML = ims.map(im => {
+      const a = atr.filter(d => pensao(d) === im), h = hojeV.filter(d => pensao(d) === im), v = vagos.filter(x => String(x.imovel) === im);
+      const it = itens.filter(i => String(i.imovel) === im), falta = it.filter(i => i.pessoas == null && !i.dispensa).length;
+      const est = v.filter(x => !x.ultimo_aluguel).length, mx = a.length ? Math.max(...a.map(d => Number(d.dias_atraso || 0))) : 0;
+      const quartosV = v.map(x => String(x.unidade).replace('SALAO', 'Salão')).join(', ');
+      let c = cpLinha('Em atraso', a.length ? `${fmtBRL(soma(a))} <span style="font-weight:400;color:var(--muted)">· ${a.length} boleto(s), maior ${diasLabel(mx)}</span>` : 'nenhum', a.length ? 'var(--red)' : 'var(--green)', 'atrasos');
+      if (h.length) c += cpLinha('Vence hoje', `${fmtBRL(soma(h))} <span style="font-weight:400;color:var(--muted)">· ${h.length}</span>`, 'var(--amber)', 'atrasos');
+      if (ppDados) {
+        c += cpLinha('Quartos vagos', v.length ? `${v.length} (${esc(quartosV)})` : 'lotada', v.length ? 'var(--red)' : 'var(--green)', 'pessoas');
+        if (v.length) c += cpLinha('Aluguel parado', `${fmtBRL(parado(v))}/mês${est ? ` <span style="font-weight:400;color:var(--muted)">· ${est} pela média</span>` : ''}`, 'var(--red)', 'pessoas');
+        c += cpLinha('Pessoas de ' + esc(mesPp), falta ? `faltam ${falta} quarto(s)` : 'completo ✓', falta ? 'var(--amber)' : 'var(--green)', 'pessoas');
+      }
+      return cpCard('Pensão ' + esc(im), c);
+    }).join('') || '<div style="color:var(--muted);font-size:13px">Carregando...</div>';
+    const dot = document.getElementById('cpDot');
+    dot.className = 'sync-dot ok';
+    document.getElementById('cpSync').textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+  // fundos: saldo atual e projetado do mês (a mesma prévia de Fechamentos); recarrega no máximo a cada 5 min
+  async function cpFundosCarregar() {
+    const el = document.getElementById('cpFundos');
+    if (cpFundosDados && Date.now() - cpFundosQuando < 5 * 60 * 1000) return;
+    cpFundosQuando = Date.now();
+    try {
+      const fs = (fcDados && fcDados.fundos) || (await ppChamar('fechamentos', {})).fundos || [];
+      const mes = blHoje().slice(0, 7) + '-01';
+      cpFundosDados = await Promise.all(fs.map(async f => { try { return { f, r: await ppChamar('fechamento_previa', { fundo: f.id, competencia: mes }) }; } catch (e) { return { f, erro: e.message }; } }));
+      el.innerHTML = cpFundosDados.map(({ f, r, erro }) => {
+        if (erro) return cpCard(esc(f.nome), `<div style="color:var(--red);font-size:13px">${esc(erro)}</div>`, 'fechamentos');
+        const neg = x => Number(x) < 0 ? 'var(--red)' : '';
+        return cpCard(esc(f.nome),
+          `<div class="metric-value" style="color:${neg(r.saldo_projetado) || 'var(--text)'}">${fmtBRL(r.saldo_projetado)}</div><div class="metric-sub" style="margin-bottom:8px">saldo projetado de ${esc(fcMes(r.competencia))}</div>` +
+          cpLinha('Saldo atual', fmtBRL(r.saldo_atual), neg(r.saldo_atual)) +
+          cpLinha('A receber (boletos do mês em aberto)', fmtBRL(r.a_receber), 'var(--green)') +
+          cpLinha('Contas a pagar', fmtBRL(r.contas_a_pagar), Number(r.contas_a_pagar) ? 'var(--amber)' : ''), 'fechamentos');
+      }).join('') || '<div style="color:var(--muted);font-size:13px">Nenhum fundo ativo.</div>';
+    } catch (e) { cpFundosQuando = 0; el.innerHTML = `<div style="color:var(--red);font-size:13px">⚠️ Não carregou os fundos: ${esc(e.message)}</div>`; }
+  }
+
   // ── Abas: o portal é o lugar de DIGITAR; cada assunto numa aba ───────────────
-  const ABAS_OK = ['atrasos', 'pessoas', 'contas', 'reembolsos', 'novos', 'fechamentos', 'atalhos'];
+  const ABAS_OK = ['capa', 'atrasos', 'pessoas', 'contas', 'reembolsos', 'novos', 'fechamentos', 'atalhos'];
   function abaIr(a, semHash) {
-    if (!ABAS_OK.includes(a)) a = 'atrasos';
+    if (!ABAS_OK.includes(a)) a = 'capa';
     document.querySelectorAll('.aba').forEach(b => b.classList.toggle('ativa', b.dataset.aba === a));
     document.querySelectorAll('.aba-sec').forEach(x => x.classList.toggle('ativa', x.dataset.aba === a));
     document.getElementById('barraMes').classList.toggle('show', a === 'pessoas' || a === 'contas');
@@ -2702,6 +2787,7 @@
     window.scrollTo({ top: 0 });
     if (a === 'fechamentos' && !fcDados) fcCarregar();
     if (a === 'novos') niCarregar();
+    if (a === 'capa') cpFundosCarregar();
   }
   // ---------------------------------------------------------------- Boletos (Eric 15/10)
   let blDados = null, blF = 'vencidos', blAtual = null, blSim = null;
@@ -3008,9 +3094,9 @@ function fcPreviaHtml(r, fundo) {
     el.classList.toggle('show', !!n);
   }
   (function () {
-    // abre sempre em Atrasos (Eric 13/10); link com #aba abre direto na aba pedida
+    // abre na Capa (Eric 11/11; antes Atrasos, 13/10); link com #aba abre direto na aba pedida
     const ini = (location.hash || '').slice(1);
-    abaIr(ABAS_OK.includes(ini) ? ini : 'atrasos', true);
+    abaIr(ABAS_OK.includes(ini) ? ini : 'capa', true);
   })();
 
   carregar();
