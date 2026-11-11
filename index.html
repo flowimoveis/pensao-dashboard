@@ -958,6 +958,7 @@
       <div class="sync-info"><div class="sync-dot loading" id="cpDot"></div><span id="cpSync">Carregando...</span></div>
     </div>
     <div id="cpOlx" style="display:none;background:#FEF2F2;border:1px solid #FCA5A5;color:#991B1B;border-radius:12px;padding:12px 16px;margin-bottom:12px;font-size:14px"></div>
+    <div id="cpVagos" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px"></div>
     <div id="cpTopo" class="metrics-grid"></div>
     <div id="cpPensoes" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:14px 0"></div>
     <div class="label" style="margin:18px 0 8px">Fundos · mês atual</div>
@@ -1935,19 +1936,24 @@
       document.getElementById('ppAviso').style.display = 'none';
     }
   }
-  function ppRender() {
-    const itens = ppDados.itens || [], vagos = ppDados.vagos || [];
-    // Eric 11/11: no topo, quartos vagos por pensão e o potencial parado (último aluguel; sem histórico = média do prédio, estimada)
-    const res = {};
+  // Eric 11/11: cartões de quartos vagos por pensão — os mesmos na aba Pessoas e em destaque na Capa
+  function vagosCardsHtml() {
+    if (!ppDados) return '';
+    const itens = ppDados.itens || [], vagos = ppDados.vagos || [], res = {};
     vagos.forEach(v => { const r = res[v.imovel] = res[v.imovel] || { n: 0, valor: 0, est: 0 };
       r.n++; const val = Number(v.ultimo_aluguel || v.media_predio || 0); r.valor += val; if (!v.ultimo_aluguel) r.est++; });
     const imoveis = [...new Set([...itens.map(i => i.imovel), ...vagos.map(v => v.imovel)])].sort();
-    document.getElementById('ppVagos').innerHTML = imoveis.map(im => { const r = res[im];
+    return imoveis.map(im => { const r = res[im];
       return '<div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px">' +
         '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Pensão ' + esc(im) + '</div>' +
         (r ? '<div style="font-size:20px;font-weight:700;color:var(--red)">' + r.n + (r.n === 1 ? ' quarto vago' : ' quartos vagos') + '</div>' +
              '<div style="font-size:12.5px;color:var(--muted)">' + fmtBRL(r.valor) + '/mês parado' + (r.est ? ' · ' + r.est + ' estimado(s) pela média' : '') + '</div>'
            : '<div style="font-size:20px;font-weight:700;color:var(--green)">lotada</div><div style="font-size:12.5px;color:var(--muted)">nenhum quarto vago</div>') + '</div>'; }).join('');
+  }
+  function ppRender() {
+    const itens = ppDados.itens || [], vagos = ppDados.vagos || [];
+    // Eric 11/11: no topo, quartos vagos por pensão e o potencial parado (último aluguel; sem histórico = média do prédio, estimada)
+    document.getElementById('ppVagos').innerHTML = vagosCardsHtml();
     const linhas = [...itens.map(i => ({ ...i, _t: 'c' })), ...vagos.map(v => ({ ...v, _t: 'v' }))]
       .sort((a, b) => String(a.imovel).localeCompare(String(b.imovel)) || Number(a.ordem || 0) - Number(b.ordem || 0));
     let html = '', grupo = null;
@@ -2714,7 +2720,7 @@
   const cpCard = (titulo, corpo, aba) => `<div class="metric-card" style="cursor:${aba ? 'pointer' : 'default'}" ${aba ? `onclick="abaIr('${aba}')"` : ''}>
       <div class="metric-label" style="font-weight:700;text-transform:uppercase;letter-spacing:.5px">${titulo}</div>${corpo}</div>`;
   const cpLinha = (rot, val, cor, aba) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;border-top:1px solid var(--border);${aba ? 'cursor:pointer' : ''}" ${aba ? `onclick="event.stopPropagation();abaIr('${aba}')"` : ''}>
-      <span style="color:var(--muted)">${rot}</span><span style="font-weight:600;text-align:right;color:${cor || 'var(--text)'}">${val}</span></div>`;
+      <span style="color:var(--muted);white-space:nowrap">${rot}</span><span style="font-weight:600;text-align:right;color:${cor || 'var(--text)'}">${val}</span></div>`;
   function cpRender() {
     const el = document.getElementById('cpPensoes'); if (!el) return;
     const atr = todos.filter(d => d._status === 'EM ATRASO'), hojeV = todos.filter(d => d._status === 'VENCE HOJE');
@@ -2735,6 +2741,7 @@
     const olx = document.getElementById('cpOlx'), atr30 = new Set(atr.filter(d => Number(d.dias_atraso || 0) > 30).map(d => d.imovel)).size;
     olx.style.display = ppDados && vagos.length >= 3 ? 'block' : 'none';
     if (ppDados && vagos.length >= 3) olx.innerHTML = `📣 <b>${vagos.length} quartos vagos</b>${atr30 ? ` e ${atr30} com atraso acima de 30 dias` : ''}: <b>recomenda-se ativar o anúncio da OLX.</b>`;
+    document.getElementById('cpVagos').innerHTML = vagosCardsHtml();
     // uma ficha por pensão
     const mesPp = ppDados && ppDados.competencia ? ppNomeMes(String(ppDados.competencia).slice(0, 7)) : '';
     el.innerHTML = ims.map(im => {
