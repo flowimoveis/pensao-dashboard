@@ -1404,6 +1404,7 @@
 
   // chave do cadastro: nº do contrato na SL; contrato nascido no Atlas (sem SL) usa 'atlas<id>' (Eric 11/11, 210-13 Romerito)
   function chaveCad(d) { return d.id_contrato ? String(d.id_contrato) : (d.atlas_contrato_id ? 'atlas' + d.atlas_contrato_id : ''); }
+  function fmtCpf(v) { const x = String(v || '').replace(/\D/g, ''); return x.length === 11 ? x.slice(0,3)+'.'+x.slice(3,6)+'.'+x.slice(6,9)+'-'+x.slice(9) : (v || ''); }
   function telAbrir(idContrato) {
     const d = todos.find(x => chaveCad(x)===String(idContrato));
     if (!d) { toast('Cadastro não encontrado'); return; }
@@ -1430,12 +1431,12 @@
         '<div class="tel-atual"><div class="rb-det-val grande">'+esc(fmtTel(d.telefone))+'</div>'+origem+'</div>'+
         (d.telefone_manual_por ? '<div class="rb-det-label" style="margin-top:4px">por '+esc(d.telefone_manual_por)+'</div>' : '')+
       '</div>'+
-      telCampo('CPF', d.cpf_locatario || d.cpf_locatario_atlas)+
-      telCampo('E-mail', d.email_locatario || d.email)+
+      telCampo('CPF', fmtCpf(d.cpf_locatario || d.cpf_locatario_atlas))+
+      telCampo('E-mail', d.email_locatario || d.email || d.email_atlas)+
       telCampo('Imóvel', d.imovel)+
       telCampo('Aluguel', (d.valor_aluguel || d.aluguel_atlas) ? fmtBRL(d.valor_aluguel || d.aluguel_atlas) : '—')+
       telCampo('Vencimento', (d.dia_vencimento || d.dia_vencimento_atlas) ? 'dia '+(d.dia_vencimento || d.dia_vencimento_atlas) : '—')+
-      telCampo('Proprietário', d.proprietario);
+      telCampo('Proprietário', d.proprietario || d.proprietario_atlas);   // Eric 11/11: dados do contrato no Atlas quando o cadastro da SL não vem
 
     document.getElementById('telInput').value = d.telefone ? fmtTel(d.telefone) : '';
     document.getElementById('telPor').value   = localStorage.getItem('pensao_quem') || '';
