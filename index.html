@@ -1519,7 +1519,10 @@
           const d = { id_superlogica: null, nome_cliente: b.locatario, imovel: b.rotulo, vencimento: b.vencimento, valor: b.valor, valor_atualizado: b.valor,
                       dias_atraso: b.dias_atraso, competencia: b.competencia, vencimento_original: b.vencimento_original, atraso_desde: b.atraso_desde, link_boleto_pdf: b.segunda_via || '', link_boleto: '', pix_qrcode: b.pix || '', _origem: 'itau', _id: b.id,
                       // 27/10: telefone do mesmo cadastro da régua (antes ficava 'sem telefone' em todo boleto do Atlas)
-                      id_contrato: b.id_contrato || null, telefone: b.telefone || '', wpp_status: b.wpp_status || null, telefone_origem: b.telefone_origem || null };
+                      id_contrato: b.id_contrato || null, telefone: b.telefone || '', wpp_status: b.wpp_status || null, telefone_origem: b.telefone_origem || null,
+                      // Eric 11/11: dados do contrato no Atlas — cadastro do locatário (contrato sem SL abre por 'atlas<id>'; CPF/e-mail/aluguel/dia/proprietário)
+                      atlas_contrato_id: b.atlas_contrato_id || null, cpf_locatario_atlas: b.cpf_locatario_atlas || '', email_atlas: b.email_atlas || '',
+                      aluguel_atlas: b.aluguel_atlas || null, dia_vencimento_atlas: b.dia_vencimento_atlas || null, proprietario_atlas: b.proprietario_atlas || '' };
           todos.push({ ...d, _status: classificar(d) });
         });
       }
