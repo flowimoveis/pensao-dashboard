@@ -901,6 +901,7 @@
       <button class="btn-reload" style="margin-top:0" onclick="ppUsarSugestao()">↺ Repetir o mês anterior nos vazios</button>
     </div>
     <div class="pp-aviso" id="ppAviso" style="display:none"></div>
+    <div id="ppVagos" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:12px"></div>
     <div class="pp-wrap" id="ppLista"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Carregando...</div></div>
     <div class="pp-acoes">
       <input class="pp-quem" id="ppQuem" placeholder="Seu nome (fica registrado)" oninput="mostraQuem()">
@@ -1408,6 +1409,10 @@
   function telAbrir(idContrato) {
     const d = todos.find(x => chaveCad(x)===String(idContrato));
     if (!d) { toast('Cadastro não encontrado'); return; }
+    telMostrar(d);
+  }
+  // Eric 11/11: o mesmo quadro abre da aba Pessoas (quem não tem boleto em aberto não está em 'todos')
+  function telMostrar(d) {
     telAtual = d;
 
     document.getElementById('telNome').textContent = d.nome_locatario || d.nome_cliente || '—';
@@ -1915,14 +1920,35 @@
     }
   }
   function ppRender() {
-    const itens = ppDados.itens || [];
+    const itens = ppDados.itens || [], vagos = ppDados.vagos || [];
+    // Eric 11/11: no topo, quartos vagos por pensão e o potencial parado (último aluguel; sem histórico = média do prédio, estimada)
+    const res = {};
+    vagos.forEach(v => { const r = res[v.imovel] = res[v.imovel] || { n: 0, valor: 0, est: 0 };
+      r.n++; const val = Number(v.ultimo_aluguel || v.media_predio || 0); r.valor += val; if (!v.ultimo_aluguel) r.est++; });
+    const imoveis = [...new Set([...itens.map(i => i.imovel), ...vagos.map(v => v.imovel)])].sort();
+    document.getElementById('ppVagos').innerHTML = imoveis.map(im => { const r = res[im];
+      return '<div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Pensão ' + esc(im) + '</div>' +
+        (r ? '<div style="font-size:20px;font-weight:700;color:var(--red)">' + r.n + (r.n === 1 ? ' quarto vago' : ' quartos vagos') + '</div>' +
+             '<div style="font-size:12.5px;color:var(--muted)">' + fmtBRL(r.valor) + '/mês parado' + (r.est ? ' · ' + r.est + ' estimado(s) pela média' : '') + '</div>'
+           : '<div style="font-size:20px;font-weight:700;color:var(--green)">lotada</div><div style="font-size:12.5px;color:var(--muted)">nenhum quarto vago</div>') + '</div>'; }).join('');
+    const linhas = [...itens.map(i => ({ ...i, _t: 'c' })), ...vagos.map(v => ({ ...v, _t: 'v' }))]
+      .sort((a, b) => String(a.imovel).localeCompare(String(b.imovel)) || Number(a.ordem || 0) - Number(b.ordem || 0));
     let html = '', grupo = null;
     const porImovel = {};
     itens.forEach(i => { porImovel[i.imovel] = (porImovel[i.imovel] || 0) + (i.dispensa ? 0 : Number(i.pessoas ?? 0)); });
-    itens.forEach(i => {
+    linhas.forEach(i => {
       if (i.imovel !== grupo) {
         grupo = i.imovel;
-        html += '<div class="pp-grupo"><span>Pensão ' + esc(grupo) + '</span><span id="ppTot' + esc(grupo) + '">' + porImovel[grupo] + ' pessoas</span></div>';
+        html += '<div class="pp-grupo"><span>Pensão ' + esc(grupo) + '</span><span id="ppTot' + esc(grupo) + '">' + (porImovel[grupo] || 0) + ' pessoas</span></div>';
+      }
+      if (i._t === 'v') {
+        const ult = i.ultimo_aluguel ? 'último aluguel ' + fmtBRL(i.ultimo_aluguel) + (i.ultimo_locatario ? ' (' + esc(i.ultimo_locatario.charAt(0) + i.ultimo_locatario.slice(1).toLowerCase()) + ')' : '')
+                                     : 'sem histórico · média do prédio ' + fmtBRL(i.media_predio || 0);
+        html += '<div class="pp-linha" style="background:#FEF2F2"><span class="pp-q">' + esc(String(i.unidade).replace('SALAO', 'Salão')) + '</span>' +
+                '<span class="pp-nome" style="color:var(--red);font-style:italic">Sem nome — vago' + (i.vago_desde ? ' desde ' + fmtData(i.vago_desde) : '') + '</span>' +
+                '<span class="pp-info">' + ult + '</span><span class="pp-fixo" style="visibility:hidden">—</span></div>';
+        return;
       }
       const q = String(i.unidades).replace('SALAO', 'Salão');
       const campo = i.dispensa
@@ -1932,11 +1958,20 @@
           '" oninput="ppMudou(this)">';
       const info = i.informado ? '<span class="pp-longo">salvo por ' + esc(i.informado) + '</span>'
         : (i.sugestao != null ? '<span class="pp-longo">mês anterior: </span><span class="pp-curto">ant. </span>' + i.sugestao : '');
+      // Eric 11/11: clicar no nome abre o cadastro do locatário
       html += '<div class="pp-linha"><span class="pp-q">' + esc(q) + '</span><span class="pp-nome" title="' + esc(i.locatario_nome) + '">' +
-              esc(i.locatario_nome) + '</span><span class="pp-info">' + info + '</span>' + campo + '</div>';
+              '<button class="nome-btn" onclick="ppCadastro(' + Number(i.contrato_id) + ')">' + esc(i.locatario_nome) + '</button></span><span class="pp-info">' + info + '</span>' + campo + '</div>';
     });
     document.getElementById('ppLista').innerHTML = html || '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Nenhum contrato neste mês.</div>';
     ppAviso();
+  }
+  function ppCadastro(contratoId) {
+    const i = (ppDados.itens || []).find(x => Number(x.contrato_id) === Number(contratoId));
+    if (!i) { toast('Cadastro não encontrado'); return; }
+    telMostrar({ nome_locatario: i.locatario_nome, imovel: i.imovel + '-' + String(i.unidades).replace('SALAO', 'Salão'), id_contrato: i.id_contrato || null,
+                 atlas_contrato_id: i.atlas_contrato_id, telefone: i.telefone || '', telefone_origem: i.telefone_origem, wpp_status: i.wpp_status,
+                 cpf_locatario_atlas: i.cpf_locatario_atlas, email_atlas: i.email_atlas, aluguel_atlas: i.aluguel_atlas,
+                 dia_vencimento_atlas: i.dia_vencimento_atlas, proprietario_atlas: i.proprietario_atlas });
   }
   function ppAviso() {
     abaBadge('abaNPessoas', ppDados ? ppDados.faltam : 0);
