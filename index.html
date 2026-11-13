@@ -1150,7 +1150,8 @@
   function vencTxt(d) {
     const orig = d.vencimento_original && String(d.vencimento_original).slice(0, 10) !== String(d.vencimento || '').slice(0, 10)
       ? '<br><span style="color:var(--muted);font-size:11px">original ' + fmtData(d.vencimento_original) + '</span>' : '';
-    return fmtData(d.vencimento) + orig;
+    const re = d.reemissao ? '<br><span style="color:#1E7A4F;font-size:11px;font-weight:600">reemitido</span>' : '';   // 13/11: deixa claro que já é o boleto novo
+    return fmtData(d.vencimento) + orig + re;
   }
   const compTxt = d => d.competencia ? '<b>' + d.competencia + '</b>' : '—';
   function classificar(d) {
@@ -1222,7 +1223,10 @@
     const pixEsc    = temPix ? d.pix_qrcode.replace(/\\/g,'\\\\').replace(/'/g,"\\'") : '';
     const k = todos.indexOf(d);
     // 27/10: vencido pela DATA (mesma regra do selo 'Em atraso'); o dias_atraso do cadastro da SL só atualiza na varredura diária
-    const b = (d._status === 'EM ATRASO' || Number(d.dias_atraso) > 0)
+    // 13/11 (Rafael: "não consigo tirar o juros"): boleto JÁ REEMITIDO que ainda não venceu continua 'Em atraso' pela competência,
+    // mas a 2ª Via abre o boleto novo — antes reabria o Reemitir e mostrava de novo 'com juros' (parecia que o abono não tinha pegado)
+    const reemitidoVigente = d.reemissao && String(d.vencimento || '').slice(0, 10) >= hoje();
+    const b = (!reemitidoVigente && (d._status === 'EM ATRASO' || Number(d.dias_atraso) > 0))
       ? '<button class="btn-action btn-boleto" title="Vencido: reemitir com juros e multa ou abonado" onclick="blAbrirLinha('+k+')">🧾 2ª Via</button>'
       : alvo
         ? '<a href="'+alvo+'" target="_blank" title="'+dica+'" class="btn-action btn-boleto">🧾 2ª Via</a>'
@@ -1537,7 +1541,7 @@
         todos.forEach(d => { const b = porId[d._id]; if (b) { d.competencia = b.competencia; d.vencimento_original = b.vencimento_original; d.atraso_desde = b.atraso_desde; d.dias_atraso = b.dias_atraso; d._status = classificar(d); } });
         (at.itens || []).filter(b => b.origem === 'itau').forEach(b => {
           const d = { id_superlogica: null, nome_cliente: b.locatario, imovel: b.rotulo, vencimento: b.vencimento, valor: b.valor, valor_atualizado: b.valor,
-                      dias_atraso: b.dias_atraso, competencia: b.competencia, vencimento_original: b.vencimento_original, atraso_desde: b.atraso_desde, link_boleto_pdf: b.segunda_via || '', link_boleto: '', pix_qrcode: b.pix || '', _origem: 'itau', _id: b.id,
+                      dias_atraso: b.dias_atraso, competencia: b.competencia, vencimento_original: b.vencimento_original, atraso_desde: b.atraso_desde, link_boleto_pdf: b.segunda_via || '', link_boleto: '', pix_qrcode: b.pix || '', _origem: 'itau', _id: b.id, reemissao: !!b.reemissao,
                       // 27/10: telefone do mesmo cadastro da régua (antes ficava 'sem telefone' em todo boleto do Atlas)
                       id_contrato: b.id_contrato || null, telefone: b.telefone || '', wpp_status: b.wpp_status || null, telefone_origem: b.telefone_origem || null,
                       // Eric 11/11: dados do contrato no Atlas — cadastro do locatário (contrato sem SL abre por 'atlas<id>'; CPF/e-mail/aluguel/dia/proprietário)
@@ -2856,8 +2860,11 @@
       // validação no fim (Eric 15/10): Itaú → reemite; Superlógica → o servidor recusa e orienta contato
       const r = await ppChamar('boleto_reemitir', { id: b.id, modo, vencimento: venc });
       msg.style.color = '#1E7A4F';
-      msg.textContent = `Pronto: novo boleto de ${fcBrl(r.valor)} vencendo ${blData(venc)} — o Itaú registra em até 5 minutos (a 2ª via aparece aqui). O antigo foi cancelado e é baixado no Itaú.`;
-      setTimeout(() => { blFechar(); carregar(); }, 4000);
+      // 13/11 (Rafael): a mensagem sumia em 4 s e ele reemitia de novo achando que não tinha mudado — agora fica até ele fechar
+      document.querySelectorAll('#blOpcoes button').forEach(x => { if (x.textContent.includes('Confirmar')) x.style.display = 'none'; else x.textContent = 'Fechar'; });
+      document.querySelectorAll('#blOpcoes input[name=blModo]').forEach(x => { x.disabled = true; });
+      msg.textContent = `Pronto: novo boleto de ${fcBrl(r.valor)}${modo === 'abonado' ? ' (sem juros e multa)' : ''} vencendo ${blData(venc)} — o Itaú registra em até 5 minutos e a 2ª Via da lista passa a abrir o boleto novo (marcado "reemitido"). O antigo foi cancelado e é baixado no Itaú.`;
+      carregar();
     } catch (e) { msg.style.color = '#B42318'; msg.textContent = e.message; }
   }
   // ---------------------------------------------------------------- Cancelar boleto (T281, Eric 09/11)
