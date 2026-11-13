@@ -792,6 +792,7 @@
     <button class="aba" data-aba="reembolsos" onclick="abaIr('reembolsos')">💸 Reembolsos <span class="aba-n" id="abaNReemb"></span></button>
     <button class="aba" data-aba="novos" onclick="abaIr('novos')">🆕 Novos inquilinos <span class="aba-n" id="abaNNovos"></span></button>
     <button class="aba" data-aba="fechamentos" onclick="abaIr('fechamentos')">📒 Fechamentos</button>
+    <button class="aba" data-aba="dimob" onclick="abaIr('dimob')">🧾 Dimob</button>
     <button class="aba" data-aba="atalhos" onclick="abaIr('atalhos')">📋 Atalhos</button>
   </nav>
   <div class="barra-mes" id="barraMes">
@@ -865,6 +866,15 @@
     </div>
     <div id="fcFundos" class="fc-fundos"></div>
     <div id="fcLista"></div>
+  </div>
+
+  <!-- Dimob (Eric 13/11): informes de rendimentos e resumo por proprietário — só Pensões 210/222 -->
+  <div class="section aba-sec" data-aba="dimob">
+    <div class="atrasos-header">
+      <div class="label">Dimob e informes de rendimentos · Pensões 210 e 222</div>
+      <div class="sync-info"><div class="sync-dot loading" id="dmDot"></div><span id="dmSync">Carregando...</span></div>
+    </div>
+    <div id="dmCorpo"></div>
   </div>
 
   <div class="section aba-sec" data-aba="atalhos">
@@ -2788,7 +2798,7 @@
   }
 
   // ── Abas: o portal é o lugar de DIGITAR; cada assunto numa aba ───────────────
-  const ABAS_OK = ['capa', 'atrasos', 'pessoas', 'contas', 'reembolsos', 'novos', 'fechamentos', 'atalhos'];
+  const ABAS_OK = ['capa', 'atrasos', 'pessoas', 'contas', 'reembolsos', 'novos', 'fechamentos', 'dimob', 'atalhos'];
   function abaIr(a, semHash) {
     if (!ABAS_OK.includes(a)) a = 'capa';
     document.querySelectorAll('.aba').forEach(b => b.classList.toggle('ativa', b.dataset.aba === a));
@@ -2797,8 +2807,136 @@
     if (!semHash) history.replaceState(null, '', '#' + a);
     window.scrollTo({ top: 0 });
     if (a === 'fechamentos' && !fcDados) fcCarregar();
+    if (a === 'dimob' && !dmDados) dmCarregar();
     if (a === 'novos') niCarregar();
     if (a === 'capa') cpFundosCarregar();
+  }
+
+  // ---------------------------------------------------------------- Dimob (Eric 13/11/2026)
+  // "Cria uma aba Dimob com os informes" · "precisa ter um resumo por proprietário" · "Total Rafael > mês tal X, acumulado do ano Y" ·
+  // "só faz para o 210/222". Dados: adm.pensao_dimob (aluguel inteiro do boleto do quarto, taxa da ADM como comissão, mês do
+  // repasse ao dono; jan–out Superlógica, depois o Atlas). Informe PDF no modelo da Receita (o mesmo da Flow).
+  let dmDados = null, dmAno = new Date().getFullYear(), dmMes = new Date().getMonth() + 1;
+  const DM_MES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const DM_MES_L = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  async function dmCarregar(ano) {
+    if (ano) dmAno = ano;
+    const dot = document.getElementById('dmDot'), sync = document.getElementById('dmSync');
+    dot.className = 'sync-dot loading'; sync.textContent = 'Carregando...';
+    try {
+      dmDados = await ppChamar('dimob', { ano: dmAno });
+      dmRender(); dot.className = 'sync-dot'; sync.textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) { dot.className = 'sync-dot erro'; sync.textContent = 'Erro: ' + e.message; }
+  }
+  function dmDonos() {
+    const m = {};
+    for (const l of (dmDados && dmDados.itens) || []) {
+      const k = l.locador_doc || l.locador;
+      const d = m[k] || (m[k] = { nome: l.locador, doc: l.locador_doc, linhas: [], mes: Array.from({ length: 12 }, () => ({ aluguel: 0, comissao: 0, liquido: 0 })) });
+      d.linhas.push(l);
+      (l.meses || []).forEach((v, i) => { d.mes[i].aluguel += +v.aluguel || 0; d.mes[i].comissao += +v.comissao || 0; d.mes[i].liquido += +v.liquido || 0; });
+    }
+    return Object.values(m).sort((a, b) => String(a.nome).localeCompare(String(b.nome)));
+  }
+  function dmRender() {
+    const el = document.getElementById('dmCorpo'); if (!el) return;
+    const donos = dmDonos(), mi = dmMes - 1;
+    const anos = [new Date().getFullYear(), new Date().getFullYear() - 1];
+    let h = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 12px">
+      <label style="font-size:12.5px;color:var(--muted)">Ano</label>
+      <select onchange="dmCarregar(+this.value)" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border)">${anos.map(a => `<option ${a === dmAno ? 'selected' : ''}>${a}</option>`).join('')}</select>
+      <label style="font-size:12.5px;color:var(--muted);margin-left:8px">Mês</label>
+      <select onchange="dmMes=+this.value;dmRender()" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border)">${DM_MES_L.map((m, i) => `<option value="${i + 1}" ${i === mi ? 'selected' : ''}>${m}</option>`).join('')}</select>
+      <span style="flex:1"></span>
+      <button class="filtro-btn" onclick="dmPdf(null)">📄 Todos os informes (PDF)</button>
+      <button class="filtro-btn" onclick="dmCsv()">⬇️ Planilha (CSV)</button>
+    </div>`;
+    if (!donos.length) { el.innerHTML = h + '<div style="color:var(--muted);font-size:13px">Nenhum repasse neste ano.</div>'; return; }
+    h += '<div class="label" style="margin-top:4px">Resumo por proprietário</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin:8px 0 16px">';
+    for (const d of donos) {
+      const m = d.mes[mi], acA = d.mes.slice(0, mi + 1).reduce((a, x) => a + x.aluguel, 0), acC = d.mes.slice(0, mi + 1).reduce((a, x) => a + x.comissao, 0);
+      const anoA = d.mes.reduce((a, x) => a + x.aluguel, 0);
+      h += `<div style="background:var(--white);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+        <div style="font-weight:800;font-size:15px">${fcEsc(d.nome)}</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px">CPF ${fcEsc(d.doc)} · ${d.linhas.length} quarto(s) no ano</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px"><span>${DM_MES_L[mi]}</span><b>${fcBrl(m.aluguel)}</b></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)"><span>comissão (taxa ADM)</span><span>${fcBrl(m.comissao)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:6px;border-top:1px solid var(--border);padding-top:6px"><span>Acumulado jan–${DM_MES[mi].toLowerCase()}</span><b>${fcBrl(acA)}</b></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)"><span>comissão acumulada</span><span>${fcBrl(acC)}</span></div>
+        ${mi < 11 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)"><span>ano inteiro até hoje</span><span>${fcBrl(anoA)}</span></div>` : ''}
+        <details style="margin-top:6px;font-size:12px"><summary style="cursor:pointer;color:var(--muted)">mês a mês</summary>
+          ${d.mes.map((x, i) => `<div style="display:flex;justify-content:space-between"><span>${DM_MES[i]}</span><span>${fcBrl(x.aluguel)} <span style="color:var(--muted)">· com. ${fcBrl(x.comissao)}</span></span></div>`).join('')}</details>
+        <button class="filtro-btn" style="margin-top:8px;width:100%" onclick="dmPdf('${fcEsc(d.doc)}')">📄 Informe de rendimentos (PDF)</button>
+      </div>`;
+    }
+    h += '</div><details><summary style="cursor:pointer;font-size:13px;color:var(--muted)">Informes por quarto e proprietário (' + dmDados.itens.length + ')</summary><div style="overflow-x:auto;margin-top:6px"><table style="width:100%;font-size:12px;border-collapse:collapse">'
+      + '<tr style="text-align:left;color:var(--muted)"><th>Quarto</th><th>Locatário</th><th>Proprietário</th><th>%</th><th style="text-align:right">Aluguel no ano</th><th style="text-align:right">Comissão</th></tr>'
+      + dmDados.itens.map(l => `<tr style="border-top:1px solid var(--border)"><td>${fcEsc(l.imovel_codigo)}</td><td>${fcEsc(l.locatario)}</td><td>${fcEsc(String(l.locador).split(' ')[0])}</td><td>${(+l.fracao || 0).toLocaleString('pt-BR')}</td><td style="text-align:right">${fcBrl(l.total_aluguel)}</td><td style="text-align:right">${fcBrl(l.total_comissao)}</td></tr>`).join('')
+      + '</table></div></details>'
+      + '<div style="font-size:11.5px;color:var(--muted);margin-top:10px">Aluguel = parte "aluguel" do boleto do quarto (a reserva continua renda do dono, só guardada no fundo); comissão = taxa de administração (dedutível); mês = o do repasse ao dono; valores pela fração de cada proprietário. Janeiro a outubro vêm da Superlógica, depois o Atlas.</div>';
+    el.innerHTML = h;
+  }
+  function dmCsv() {
+    const cab = ['Proprietario', 'CPF', 'Fracao', 'Locatario', 'CPF/CNPJ locatario', 'Quarto', 'Endereco', 'CEP', ...DM_MES.flatMap(m => [m + ' aluguel', m + ' comissao']), 'Total aluguel', 'Total comissao'];
+    const lin = (dmDados.itens || []).map(l => [l.locador, l.locador_doc, l.fracao, l.locatario, l.locatario_doc, l.imovel_codigo, l.endereco, l.cep,
+      ...(l.meses || []).flatMap(v => [v.aluguel, v.comissao]), l.total_aluguel, l.total_comissao]);
+    const esc = v => { const t = String(v ?? '').replace('.', ','); return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const txt = [cab, ...lin].map(r => r.map(esc).join(';')).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + txt], { type: 'text/csv;charset=utf-8' })); a.download = `DIMOB ${dmAno} - Pensoes 210 e 222.csv`; a.click();
+  }
+  function dmJsPdf() {
+    if (window.jspdf) return Promise.resolve(window.jspdf.jsPDF);
+    return new Promise((ok, err) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      sc.onload = () => ok(window.jspdf.jsPDF); sc.onerror = () => err(new Error('não carregou o gerador de PDF')); document.head.appendChild(sc); });
+  }
+  async function dmPdf(doc) {
+    // informe de rendimentos (modelo da Receita / Superlógica, o mesmo da Flow): uma página por proprietário × quarto
+    const jsPDF = await dmJsPdf();
+    const lista = (dmDados.itens || []).filter(l => !doc || l.locador_doc === doc).sort((a, b) => String(a.locador).localeCompare(String(b.locador)) || String(a.imovel_codigo).localeCompare(String(b.imovel_codigo)));
+    const num = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const dig = v => String(v || '').replace(/\D/g, '');
+    const ADM = { cnpj: '17642438000176', nome: 'TORRES CONSULTORIA IMOBILIARIA E CORRETORA DE SEGUROS LTDA', endereco: 'Avenida Paulista, 1374, 12º Andar, São Paulo-SP, CEP 01310-916' };
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+    const W = pdf.internal.pageSize.getWidth(), M = 40, CW = W - 2 * M;
+    const txt = (s, x, y, o = {}) => { pdf.setFont('helvetica', o.b ? 'bold' : 'normal'); pdf.setFontSize(o.s || 9); pdf.setTextColor(20, 20, 20); pdf.text(String(s ?? ''), x, y, o.dir ? { align: 'right' } : o.centro ? { align: 'center' } : undefined); };
+    const caixa = (x, y, w, h) => { pdf.setDrawColor(60, 60, 60); pdf.setLineWidth(0.6); pdf.rect(x, y, w, h); };
+    const par = (y, rA, vA, rB, vB, wA) => { caixa(M, y, wA, 30); caixa(M + wA, y, CW - wA, 30); txt(rA, M + 4, y + 9, { s: 7.5 }); txt(vA, M + 4, y + 23, { s: 9.5 }); txt(rB, M + wA + 4, y + 9, { s: 7.5 }); txt(vB, M + wA + 4, y + 23, { s: 9.5 }); };
+    lista.forEach((l, n) => {
+      if (n) pdf.addPage();
+      let y = 30;
+      caixa(M, y, CW * 0.55, 62); caixa(M + CW * 0.55, y, CW * 0.45, 62);
+      txt('MINISTÉRIO DA FAZENDA', M + 6, y + 22, { s: 12 }); txt('Secretaria da Receita Federal do Brasil', M + 6, y + 42, { s: 9 });
+      txt('COMPROVANTE ANUAL DE', W - M - 8, y + 18, { s: 9.5, dir: true }); txt('RENDIMENTOS DE ALUGUÉIS', W - M - 8, y + 32, { s: 9.5, dir: true }); txt(`Ano-calendario: ${dmAno}`, W - M - 8, y + 44, { s: 9.5, dir: true });
+      y += 82; txt('1 - Beneficiário do Rendimento (Locador)', M, y, { s: 8.5 }); y += 4;
+      par(y, 'Nome / Nome Empresarial', String(l.locador || '').toUpperCase(), 'CPF / CNPJ', dig(l.locador_doc), CW * 0.62); y += 44;
+      txt('2 - Fonte Pagadora (Locatário)', M, y, { s: 8.5 }); y += 4;
+      par(y, 'Nome / Nome Empresarial', String(l.locatario || '').toUpperCase(), 'CPF / CNPJ', dig(l.locatario_doc), CW * 0.62); y += 44;
+      txt('3 - Rendimentos (em Reais)', M, y, { s: 8.5 }); y += 4;
+      const tabH = 14 * 15 + 8; caixa(M, y, CW, tabH);
+      const cx = [M + 50, M + 205, M + 330, W - M - 20];
+      pdf.setFillColor(215, 215, 215); pdf.rect(M + 12, y + 6, CW - 24, 14, 'F');
+      txt('Mês', cx[0], y + 16, { s: 8.5, centro: true }); txt('Rendimento Bruto', M + 150, y + 16, { s: 8.5, centro: true }); txt('Valor Comissão', M + 300, y + 16, { s: 8.5, centro: true }); txt('Imposto Retido', M + 440, y + 16, { s: 8.5, centro: true });
+      let ty = y + 20, tA = 0, tC = 0, tI = 0;
+      DM_MES.forEach((m, k) => { const v = (l.meses || [])[k] || {};
+        if (k % 2) { pdf.setFillColor(215, 215, 215); pdf.rect(M + 72, ty + 1, CW - 84, 13, 'F'); }
+        txt(m, cx[0], ty + 11, { s: 8.5, centro: true }); txt(num(v.aluguel), cx[1], ty + 11, { s: 8.5, dir: true }); txt(num(v.comissao), cx[2], ty + 11, { s: 8.5, dir: true }); txt(num(v.ir), cx[3], ty + 11, { s: 8.5, dir: true });
+        tA += +v.aluguel || 0; tC += +v.comissao || 0; tI += +v.ir || 0; ty += 14; });
+      txt('Total', cx[0], ty + 11, { s: 8.5, centro: true }); txt(num(tA), cx[1], ty + 11, { s: 8.5, dir: true }); txt(num(tC), cx[2], ty + 11, { s: 8.5, dir: true }); txt(num(tI), cx[3], ty + 11, { s: 8.5, dir: true });
+      y += tabH + 14; txt('4 - Informações Complementares', M, y, { s: 8.5 }); y += 4; caixa(M, y, CW, 152);
+      let iy = y + 13; const li = s => { txt(s, M + 6, iy, { s: 9 }); iy += 12; };
+      li(`CNPJ da Administradora do imóvel (Imobiliária): ${ADM.cnpj}`); li(`Nome: ${ADM.nome}`); li(`Endereço: ${ADM.endereco}`); iy += 8;
+      li('Dados do imóvel'); li(`Imóvel: ${l.imovel_codigo || ''} · fração do proprietário ${(+l.fracao || 0).toLocaleString('pt-BR')}%`);
+      txt(`Início do contrato: ${l.inicio || ''}`, M + 6, iy, { s: 9 }); txt('Tipo do imóvel: Urbano', M + 200, iy, { s: 9 }); iy += 12;
+      li(`Endereço do imóvel: ${String(l.endereco_imovel || l.endereco || '').slice(0, 95)}`);
+      txt(`UF: ${l.uf || 'SP'}`, M + 6, iy, { s: 9 }); txt(`Município: ${l.cidade || 'São Paulo'}`, M + 200, iy, { s: 9 }); txt(`CEP: ${dig(l.cep)}`, M + 360, iy, { s: 9 }); iy += 14;
+      pdf.setFontSize(9); pdf.text(pdf.splitTextToSize('Atenção: Para a inclusão na Declaração do Imposto de Renda da Pessoa Física - DIRPF dos rendimentos informados neste documento, certifique-se de que os mesmos não constam de outro comprovante emitido pela fonte pagadora.', CW - 12), M + 6, iy);
+      y += 166; txt('5 - Responsável pelas Informações', M, y, { s: 8.5 }); y += 4;
+      caixa(M, y, CW * 0.5, 30); caixa(M + CW * 0.5, y, CW * 0.2, 30); caixa(M + CW * 0.7, y, CW * 0.3, 30);
+      txt('Nome', M + CW * 0.25, y + 9, { s: 7.5, centro: true }); txt('Data', M + CW * 0.6, y + 9, { s: 7.5, centro: true }); txt('Assinatura', M + CW * 0.85, y + 9, { s: 7.5, centro: true });
+    });
+    if (!lista.length) { pdf.setFontSize(12); pdf.text(`Sem rendimentos em ${dmAno}`, M, 60); }
+    const quem = doc ? String((lista[0] || {}).locador || doc).split(' ')[0] : 'todos';
+    pdf.save(`Informe de rendimentos ${dmAno} - ${quem} - Pensoes 210 e 222.pdf`);
   }
   // ---------------------------------------------------------------- Boletos (Eric 15/10)
   let blDados = null, blF = 'vencidos', blAtual = null, blSim = null;
