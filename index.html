@@ -3059,7 +3059,21 @@ function fcPreviaHtml(r, fundo) {
     // 09/11 (Eric: "vale colocar a composição?"): água · luz · IPTU · reserva livre embaixo do saldo atual; negativo em vermelho
     const fcSub = { agua: 'Água', luz: 'Luz', iptu: 'IPTU', reserva: 'Reserva livre' };
     const fcComp = (r.saldo_composicao || []).map(x => `${fcSub[x.sub] || fcEsc(x.sub)} <b style="color:${Number(x.valor) < 0 ? '#B42318' : 'inherit'}">${fcBrl(x.valor)}</b>`).join(' · ');
-    if (!r.mes_passado) h += `<div class="fc-sal2"><div><div class="r">Saldo atual</div><div class="v">${fcBrl(r.saldo_atual)}</div>${fcComp ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">${fcComp}</div>` : ''}</div>
+    // 13/11 (Eric: "precisa mostrar em destaque o quanto tem Livre e embaixo detalhar"): LIVRE = reserva livre; embaixo, do saldo na conta
+    // até o livre — água e luz guardadas para as contas, IPTU adiantado (volta com os boletos dos quartos)
+    const fcV = k => Number(((r.saldo_composicao || []).find(x => x.sub === k) || {}).valor || 0);
+    const fcLin = (rot, v, cor) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:2px 0"><span style="color:var(--muted)">${rot}</span><b style="color:${cor || 'inherit'}">${fcBrl(v)}</b></div>`;
+    const fcLivre = (r.saldo_composicao || []).length
+      ? `<div class="r">Livre</div><div class="v" style="font-size:24px;color:${fcV('reserva') < 0 ? '#B42318' : '#047857'}">${fcBrl(fcV('reserva'))}</div>
+         <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:6px">
+           ${fcLin('Saldo na conta', r.saldo_atual)}
+           ${fcLin('− guardado para a conta de água', -fcV('agua'))}
+           ${fcLin('− guardado para a conta de luz', -fcV('luz'))}
+           ${fcLin(fcV('iptu') < 0 ? '+ IPTU adiantado (volta com os boletos dos quartos)' : '− guardado para o IPTU', -fcV('iptu'), fcV('iptu') < 0 ? '#047857' : '')}
+           ${fcLin('= Livre', fcV('reserva'))}
+         </div>`
+      : `<div class="r">Saldo atual</div><div class="v">${fcBrl(r.saldo_atual)}</div>`;
+    if (!r.mes_passado) h += `<div class="fc-sal2"><div>${fcLivre}</div>
       <div><div class="r">Saldo projetado · ${fcEsc(fcMes(r.competencia))}</div><div class="v" style="color:${Number(r.saldo_projetado) < 0 ? '#B42318' : 'inherit'}">${fcBrl(r.saldo_projetado)}</div></div></div>
       <div class="fc-form">Projetado = saldo atual ${fcBrl(r.saldo_atual)} + a receber do fundo nos boletos do mês em aberto ${fcBrl(r.a_receber)} − contas a pagar ${fcBrl(r.contas_a_pagar)} (inclui ${fcBrl(r.contas_estimadas || 0)} de contas ESTIMADAS pela última fatura, que somem quando a fatura real chega, e ${fcBrl(r.parceira_provisao || 0)} de provisão da parceira).</div>`;
     h += '<div class="fc-t">Contas e despesas do fundo</div><div class="fc-2col"><div>'
