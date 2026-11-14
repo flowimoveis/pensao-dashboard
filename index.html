@@ -469,6 +469,8 @@
   body.so-leitura #ppSecao .pp-top, body.so-leitura #ppSecao .pp-acoes, body.so-leitura #rtBtnReabrir, body.so-leitura #rtBtnFechar,
   body.so-leitura #rtBtnContas, body.so-leitura .rt-up-btn, body.so-leitura #telEditar, body.so-leitura #telBtnSalvar,
   body.so-leitura .bl-reemitir, body.so-leitura .so-grava { display: none !important; }
+  /* Eric 14/11 06:27: "Dimob tira de todos, inclusive do Rafael" — só aparece com pode_dimob (o servidor recusa o resto) */
+  body:not(.pode-dimob) [data-aba="dimob"] { display: none !important; }
   body.so-leitura .pp-input, body.so-leitura .rt-conta input { pointer-events: none; background: transparent; }
 </style>
 <script>
@@ -486,6 +488,12 @@
   const SO_LER = () => !!(window.PORTAL_ESC && window.PORTAL_ESC.somente_leitura);
   const ESC_PENSOES = () => (window.PORTAL_ESC && Array.isArray(window.PORTAL_ESC.pensoes)) ? window.PORTAL_ESC.pensoes : null;
   const ESC_FUNDOS = () => !!(window.PORTAL_ESC && Array.isArray(window.PORTAL_ESC.fundos));
+  function dimobAplicar(pode) {
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', () => dimobAplicar(pode), { once: true }); return; }
+    document.body.classList.toggle('pode-dimob', !!pode);
+    const ativa = document.querySelector('.aba.ativa');
+    if (!pode && ativa && ativa.dataset.aba === 'dimob' && typeof abaIr === 'function') abaIr('capa');
+  }
   function escAplicar() {
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', escAplicar, { once: true }); return; }
     const e = window.PORTAL_ESC; if (!e) return;
@@ -550,6 +558,7 @@
         .then(r => r.json()).then(j => {
           // Eric 14/11: escopo por fundo / só leitura — a tela esconde o que o servidor já recusa
           if (j && j.ok && j.escopo) { window.PORTAL_ESC = j.escopo; escAplicar(); }
+          if (j && j.ok) dimobAplicar(j.pode_dimob === true);
           return (j && j.erro === 'bloqueado_assinatura' && j.bloqueio) ? j : null;
         }).catch(() => null);
       return bqProm;
