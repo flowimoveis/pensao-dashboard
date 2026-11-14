@@ -463,6 +463,13 @@
   .bq-rodape { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.5; margin-top: 26px; }
   .bq-ok-ico { width: 56px; height: 56px; border-radius: 50%; background: var(--green-lt); border: 1px solid var(--green-border); color: var(--green); display: flex; align-items: center; justify-content: center; margin: 40px auto 14px; font-size: 26px; }
   @media (min-width: 641px) { .bq-wrap { padding-top: 40px; } .bq h1 { font-size: 28px; } }
+  /* Eric 14/11: escopo por fundo e só leitura (o servidor recusa; aqui só some o botão) */
+  .esc-barra { display: none; background: #FEF3C7; color: #92400E; border-bottom: 1px solid #FCD34D; font-size: 13px; padding: 8px 16px; text-align: center; }
+  body.esc-previa .esc-barra { display: block; }
+  body.so-leitura #ppSecao .pp-top, body.so-leitura #ppSecao .pp-acoes, body.so-leitura #rtBtnReabrir, body.so-leitura #rtBtnFechar,
+  body.so-leitura #rtBtnContas, body.so-leitura .rt-up-btn, body.so-leitura #telEditar, body.so-leitura #telBtnSalvar,
+  body.so-leitura .bl-reemitir, body.so-leitura .so-grava { display: none !important; }
+  body.so-leitura .pp-input, body.so-leitura .rt-conta input { pointer-events: none; background: transparent; }
 </style>
 <script>
   // ── LOGIN PELO GOOGLE (Eric 13/10/2026: "igual ao contas de casa") ─────────────────────────────────────
@@ -472,6 +479,29 @@
   const GOOGLE_CLIENT_ID = '143326879297-kmts8pj8cubes2gglr7q4sj91nq9r0br.apps.googleusercontent.com';   // cliente 'contasdecasa' (GCP flow-seo-501612): só confirma o e-mail; quem entra é a lista da pensão
   const PENSAO_HOOK = 'https://n8n.flowimoveis.imb.br/webhook/pensao';
   const BQ_LIVRES = ['quem_sou', 'bloqueio_ver', 'bloqueio_verificar'];   // o que a tela de assinatura pendente pode chamar
+  // Eric 14/11: ?previa=rogerio = o Eric vê o portal COMO aquele login (só leitura); o servidor só aceita do Eric
+  const PREVIA = (() => { try { const q = new URLSearchParams(location.search); return (q.get('previa') || q.get('previa_bloqueio') || '').trim(); } catch (e) { return ''; } })();
+  // escopo do login (vem do quem_sou): null = vê tudo e grava; { pensoes:[...], fundos:[...], somente_leitura, previa, nome }
+  window.PORTAL_ESC = null;
+  const SO_LER = () => !!(window.PORTAL_ESC && window.PORTAL_ESC.somente_leitura);
+  const ESC_PENSOES = () => (window.PORTAL_ESC && Array.isArray(window.PORTAL_ESC.pensoes)) ? window.PORTAL_ESC.pensoes : null;
+  const ESC_FUNDOS = () => !!(window.PORTAL_ESC && Array.isArray(window.PORTAL_ESC.fundos));
+  function escAplicar() {
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', escAplicar, { once: true }); return; }
+    const e = window.PORTAL_ESC; if (!e) return;
+    document.body.classList.toggle('so-leitura', !!e.somente_leitura);
+    document.body.classList.toggle('esc-previa', !!e.previa);
+    const bar = document.getElementById('escBarra');
+    if (bar && e.previa) bar.innerHTML = 'Prévia: você está vendo o portal como <b>' + String(e.nome || e.email || '').replace(/[<>&]/g, '') + '</b>'
+      + (ESC_PENSOES() ? ' (só Pensões ' + ESC_PENSOES().join(', ') + ')' : '') + ' · só leitura' + (e.ativo === false ? ' · <b>login ainda desativado</b>' : '');
+    const some = [];
+    if (ESC_FUNDOS()) some.push('reembolsos');            // reembolso não é de uma pensão: quem tem escopo não vê
+    if (e.somente_leitura) some.push('novos', 'atalhos');   // abas que só servem para pedir/gravar
+    some.forEach(a => document.querySelectorAll('[data-aba="' + a + '"]').forEach(x => { x.style.display = 'none'; }));
+    if (ESC_PENSOES()) document.querySelectorAll('[data-pensao]').forEach(x => { if (!ESC_PENSOES().includes(x.dataset.pensao)) x.remove(); });
+    const ativa = document.querySelector('.aba.ativa');
+    if (ativa && some.includes(ativa.dataset.aba) && typeof abaIr === 'function') abaIr('capa');
+  }
   let bqAtivo = false;
   function idToken() { try { return sessionStorage.getItem('pensao_idt') || ''; } catch (e) { return ''; } }
   (function () {
@@ -487,8 +517,8 @@
           loginMostrar('');
           return Promise.resolve(new Response('{"ok":false,"erro":"login"}', { status: 401, headers: { 'Content-Type': 'application/json' } }));
         }
-        if (opt.body instanceof URLSearchParams) { opt.body.delete('token'); opt.body.set('id_token', idt); }
-        else u.searchParams.set('id_token', idt);
+        if (opt.body instanceof URLSearchParams) { opt.body.delete('token'); opt.body.set('id_token', idt); if (PREVIA) opt.body.set('previa', PREVIA); }
+        else { u.searchParams.set('id_token', idt); if (PREVIA) u.searchParams.set('previa', PREVIA); }
         url = u.toString();
         const enviar = () => original(url, opt).then(r => {
           if (r.status === 401) {
@@ -516,12 +546,16 @@
     // erro 'bloqueado_assinatura' (inclusive o quem_sou dos webhooks laterais); esta tela é só a cara disso.
     let bqProm = null;
     window.bqPortao = function (forcar) {
-      if (forcar || !bqProm) bqProm = original(PENSAO_HOOK + '-api', { method: 'POST', body: new URLSearchParams({ acao: 'quem_sou', dados: '{}', id_token: idToken() }) })
-        .then(r => r.json()).then(j => (j && j.erro === 'bloqueado_assinatura' && j.bloqueio) ? j : null).catch(() => null);
+      if (forcar || !bqProm) bqProm = original(PENSAO_HOOK + '-api', { method: 'POST', body: new URLSearchParams(Object.assign({ acao: 'quem_sou', dados: '{}', id_token: idToken() }, PREVIA ? { previa: PREVIA } : {})) })
+        .then(r => r.json()).then(j => {
+          // Eric 14/11: escopo por fundo / só leitura — a tela esconde o que o servidor já recusa
+          if (j && j.ok && j.escopo) { window.PORTAL_ESC = j.escopo; escAplicar(); }
+          return (j && j.erro === 'bloqueado_assinatura' && j.bloqueio) ? j : null;
+        }).catch(() => null);
       return bqProm;
     };
     window.bqApi = function (acao, dados) {
-      return original(PENSAO_HOOK + '-api', { method: 'POST', body: new URLSearchParams({ acao, dados: JSON.stringify(dados || {}), id_token: idToken() }) })
+      return original(PENSAO_HOOK + '-api', { method: 'POST', body: new URLSearchParams(Object.assign({ acao, dados: JSON.stringify(dados || {}), id_token: idToken() }, PREVIA ? { previa: PREVIA } : {})) })
         .then(r => r.json()).catch(() => ({ ok: false, erro: 'sem conexão' }));
     };
   })();
@@ -773,6 +807,7 @@
   </div>
 </div>
 
+<div class="esc-barra" id="escBarra"></div>
 <header>
   <div class="logo">
     <img src="logo.jpg" alt="Flow Imóveis" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
@@ -949,9 +984,9 @@
     <div class="label">Documentos do rateio · <span id="rtDocsMes"></span></div>
     <div style="font-size:12px;color:var(--muted);margin:2px 0 0">Imprima o quadro de rateio de cada pensão (PDF) ou baixe as contas que o compuseram (todas num PDF só por pensão).</div>
     <div class="rt-docs" id="rtDocs">
-      <div class="rt-doc"><div class="rt-doc-t">Pensão 118</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('118', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('118', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg118"></div></div>
-      <div class="rt-doc"><div class="rt-doc-t">Pensão 210</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('210', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('210', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg210"></div></div>
-      <div class="rt-doc"><div class="rt-doc-t">Pensão 222</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('222', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('222', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg222"></div></div>
+      <div class="rt-doc" data-pensao="118"><div class="rt-doc-t">Pensão 118</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('118', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('118', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg118"></div></div>
+      <div class="rt-doc" data-pensao="210"><div class="rt-doc-t">Pensão 210</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('210', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('210', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg210"></div></div>
+      <div class="rt-doc" data-pensao="222"><div class="rt-doc-t">Pensão 222</div><div class="rt-doc-b"><button class="rt-bt2" onclick="rtImprimirRateio('222', this)">🖨 Imprimir rateio (PDF)</button><button class="rt-bt2" onclick="rtBaixarContas('222', this)">⬇ Baixar contas</button></div><div class="rt-doc-msg" id="rtDocMsg222"></div></div>
     </div>
     </div>
     <div class="rt-pane" data-p="contas">
@@ -1236,7 +1271,7 @@
     // 13/11 (Rafael: "não consigo tirar o juros"): boleto JÁ REEMITIDO que ainda não venceu continua 'Em atraso' pela competência,
     // mas a 2ª Via abre o boleto novo — antes reabria o Reemitir e mostrava de novo 'com juros' (parecia que o abono não tinha pegado)
     const reemitidoVigente = d.reemissao && String(d.vencimento || '').slice(0, 10) >= hoje();
-    const b = (!reemitidoVigente && (d._status === 'EM ATRASO' || Number(d.dias_atraso) > 0))
+    const b = (!SO_LER() && !reemitidoVigente && (d._status === 'EM ATRASO' || Number(d.dias_atraso) > 0))
       ? '<button class="btn-action btn-boleto" title="Vencido: reemitir com juros e multa ou abonado" onclick="blAbrirLinha('+k+')">🧾 2ª Via</button>'
       : alvo
         ? '<a href="'+alvo+'" target="_blank" title="'+dica+'" class="btn-action btn-boleto">🧾 2ª Via</a>'
@@ -1246,7 +1281,7 @@
       ? '<button class="btn-action btn-pix" onclick="copiarPix(this,\''+pixEsc+'\')">⚡ PIX</button>'
       : '<span class="btn-action btn-pix btn-disabled">⚡ PIX</span>';
     // T281 (Eric 09/11): Cancelar ao lado da 2ª via/Reemitir — só boleto do Atlas (Itaú); o da Superlógica não se cancela aqui
-    const cx = d._origem === 'itau'
+    const cx = d._origem === 'itau' && !SO_LER()
       ? '<button class="btn-action" style="color:#B42318;border:1px solid #FECACA;background:#fff" title="Cancelar o boleto (motivo obrigatório)" onclick="bcAbrir('+k+')">✕ Cancelar</button>'
       : '';
     return b+cx+p;
@@ -1878,6 +1913,7 @@
   }
 
   async function rbCarregar() {
+    if (ESC_FUNDOS()) return;   // Eric 14/11: reembolso não é de uma pensão — login com escopo de fundo não vê
     const dot = document.getElementById('rbDot');
     const txt = document.getElementById('rbSync');
     const ico = document.getElementById('rbReloadIcon');
@@ -1917,7 +1953,10 @@
     const [a, m] = ym.split('-').map(Number);
     return new Date(a, m - 1, 15).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   }
+  const PP_GRAVA = ['pessoas_salvar', 'conta_salvar', 'rateio_fechar', 'rateio_reabrir', 'conta_upload', 'boleto_simular', 'boleto_reemitir', 'boleto_cancelar', 'reembolso_token'];
   async function ppChamar(acao, dados) {
+    if (SO_LER() && (PP_GRAVA.includes(acao) || (acao.startsWith('inquilinos_') && !['inquilinos_listar', 'inquilinos_partes'].includes(acao))))
+      throw new Error('Seu acesso ao portal é só de consulta.');
     const res = await fetch(PP_API, { method: 'POST', body: new URLSearchParams({
       token: PP_TOKEN, acao, dados: JSON.stringify(dados), por: document.getElementById('ppQuem').value.trim() }) });
     let json = {};
@@ -2645,7 +2684,7 @@
     niPensao = '';
     document.getElementById('niForm').innerHTML = `<div class="ni-card"><form onsubmit="niEnviarAnalise(event)">
       <div class="ni-form">
-        <div class="full"><label>Pensão *</label><div class="ni-pens" id="niPens">${['118', '210', '222'].map(p => `<button type="button" onclick="niPensao='${p}'; document.querySelectorAll('#niPens button').forEach(b=>b.classList.toggle('on', b.textContent==='${p}'))">${p}</button>`).join('')}</div></div>
+        <div class="full"><label>Pensão *</label><div class="ni-pens" id="niPens">${['118', '210', '222'].filter(p => !ESC_PENSOES() || ESC_PENSOES().includes(p)).map(p => `<button type="button" onclick="niPensao='${p}'; document.querySelectorAll('#niPens button').forEach(b=>b.classList.toggle('on', b.textContent==='${p}'))">${p}</button>`).join('')}</div></div>
         <div class="full"><label>Nome completo do candidato *</label><input id="niNome" required></div>
         <div><label>CPF *</label><input id="niCpf" inputmode="numeric" required placeholder="000.000.000-00"></div>
         <div><label>Nascimento *</label><input id="niNasc" type="date" required></div>
@@ -2750,7 +2789,7 @@
       cpCard('Em atraso', `<div class="metric-value red">${fmtBRL(soma(atr))}</div><div class="metric-sub">${atr.length} boleto(s)${maior ? ' · maior atraso ' + diasLabel(maior) : ''}</div>`, 'atrasos') +
       cpCard('Vence hoje', `<div class="metric-value amber">${fmtBRL(soma(hojeV))}</div><div class="metric-sub">${hojeV.length} boleto(s)</div>`, 'atrasos') +
       cpCard('Quartos vagos', ppDados ? `<div class="metric-value ${vagos.length ? 'red' : ''}">${vagos.length}</div><div class="metric-sub">${fmtBRL(parado(vagos))}/mês parado</div>` : '<div class="metric-value">—</div>', 'pessoas') +
-      cpCard('Reembolsos pendentes', `<div class="metric-value ${rbPend.length ? 'blue' : ''}">${fmtBRL(rbPend.reduce((t, r) => t + Number(r.valor || 0), 0))}</div><div class="metric-sub">${rbPend.length} solicitaç${rbPend.length === 1 ? 'ão' : 'ões'}</div>`, 'reembolsos');
+      (ESC_FUNDOS() ? '' : cpCard('Reembolsos pendentes', `<div class="metric-value ${rbPend.length ? 'blue' : ''}">${fmtBRL(rbPend.reduce((t, r) => t + Number(r.valor || 0), 0))}</div><div class="metric-sub">${rbPend.length} solicitaç${rbPend.length === 1 ? 'ão' : 'ões'}</div>`, 'reembolsos'));
     // Eric 11/11: 3 ou mais quartos vagos (somando as pensões) → recomenda ativar a OLX (o robô pensao-alerta-vagos avisa o Rafael no grupo)
     const olx = document.getElementById('cpOlx'), atr30 = new Set(atr.filter(d => Number(d.dias_atraso || 0) > 30).map(d => d.imovel)).size;
     olx.style.display = ppDados && vagos.length >= 3 ? 'block' : 'none';
@@ -2962,7 +3001,7 @@
             · <span class="fc-tag ${b.origem === 'itau' ? 'ok' : ''}">${b.origem === 'itau' ? 'Itaú (Atlas)' : 'Superlógica'}</span>${b.status === 'a_registrar' ? ' · registrando no Itaú…' : ''}${b.reemissao ? ' · reemitido' : ''}</div></div>
         <b>${fcBrl(b.valor)}</b>
         ${b.segunda_via ? `<a href="${fcEsc(b.segunda_via)}" target="_blank" rel="noopener" class="btn-sec" style="text-decoration:none;padding:6px 10px;border:1px solid var(--line,#ddd);border-radius:8px;font-size:13px">2ª via</a>` : ''}
-        <button onclick="blAbrir('${b.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#2B3156;color:#fff;font-size:13px;cursor:pointer">Reemitir</button>
+        <button class="bl-reemitir" onclick="blAbrir('${b.id}')" style="padding:6px 10px;border-radius:8px;border:none;background:#2B3156;color:#fff;font-size:13px;cursor:pointer">Reemitir</button>
       </div>`).join('');
   }
   function blFechar() { document.getElementById('blModal').style.display = 'none'; blAtual = null; blSim = null; }
