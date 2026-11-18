@@ -2839,6 +2839,9 @@
         return cpCard(esc(f.nome),
           `<div class="metric-value" style="color:${neg(r.saldo_projetado) || 'var(--text)'}">${fmtBRL(r.saldo_projetado)}</div><div class="metric-sub" style="margin-bottom:8px">saldo projetado de ${esc(fcMes(r.competencia))}</div>` +
           cpLinha('Saldo atual', fmtBRL(r.saldo_atual), neg(r.saldo_atual)) +
+          // 18/11 (Eric): o livre da Capa é o mesmo de Fechamentos — saldo − só o guardado; o adiantado (água/IPTU) não soma
+          ((fl => fl ? cpLinha('Livre (saldo − guardado p/ contas)', fmtBRL(fl.livre), neg(fl.livre)) +
+            (fl.adiantado > 0 ? cpLinha('Adiantado pelo fundo (volta c/ boletos)', fmtBRL(fl.adiantado), 'var(--amber)') : '') : '')(fcLivreDe(r))) +
           cpLinha('A receber (boletos do mês em aberto)', fmtBRL(r.a_receber), 'var(--green)') +
           cpLinha('Contas a pagar', fmtBRL(r.contas_a_pagar), Number(r.contas_a_pagar) ? 'var(--amber)' : ''), 'fechamentos');
       }).join('') || '<div style="color:var(--muted);font-size:13px">Nenhum fundo ativo.</div>';
@@ -3225,6 +3228,18 @@ const FC_SIT = { solicitado: ['enviando para o Itaú', '#4338CA'], enviando: ['e
   agendado: ['agendado no Itaú', '#047857'], efetuado: ['pago no Itaú · aguardando o extrato', '#047857'], estorno_pedido: ['estorno pedido', '#B54708'],
   divergente: ['NÃO APROVE · recebedor diferente', '#B42318'], erro: ['erro no pagamento', '#B42318'] }
 function fcSit(st) { const x = FC_SIT[st]; return x ? ` <span style="font-size:11px;font-weight:800;color:${x[1]}">· ${x[0]}</span>` : '' }
+// 18/11 (Eric: "não bate"): LIVRE = saldo na conta − caixinhas POSITIVAS (água/luz/IPTU guardados, ainda vão sair); caixinha negativa é
+// adiantamento do fundo (volta com os boletos) e NÃO soma — o livre nunca passa do saldo. Vem pronto do banco (saldo_livre); a lista sai da composição.
+function fcLivreDe(r) {
+  const comp = (r && r.saldo_composicao) || []; if (!comp.length) return null;
+  const subs = comp.filter(x => x.sub !== 'reserva').map(x => ({ sub: x.sub, v: Number(x.valor || 0) }));
+  const saldo = r.saldo_livre ? Number(r.saldo_livre.saldo) : comp.reduce((a, x) => a + Number(x.valor || 0), 0);
+  const guardado_det = subs.filter(x => x.v > 0).map(x => ({ sub: x.sub, valor: x.v }));
+  const adiantado_det = subs.filter(x => x.v < 0).map(x => ({ sub: x.sub, valor: -x.v }));
+  const g = guardado_det.reduce((a, x) => a + x.valor, 0);
+  return { saldo, livre: r.saldo_livre ? Number(r.saldo_livre.livre) : Math.round((saldo - g) * 100) / 100, guardado: g, guardado_det,
+           adiantado: adiantado_det.reduce((a, x) => a + x.valor, 0), adiantado_det };
+}
 function fcPreviaHtml(r, fundo) {
     const L = (l, v, cls, extra) => `<div class="fc-l ${cls || ''}"><span>${l}</span><span>${v == null ? '' : fcBrl(v)}${extra || ''}</span></div>`;
     const vazio = t => `<div class="fc-l i" style="color:var(--muted)">${t}</div>`;
@@ -3252,19 +3267,20 @@ function fcPreviaHtml(r, fundo) {
     // 09/11 (Eric: "vale colocar a composição?"): água · luz · IPTU · reserva livre embaixo do saldo atual; negativo em vermelho
     const fcSub = { agua: 'Água', luz: 'Luz', iptu: 'IPTU', reserva: 'Reserva livre' };
     const fcComp = (r.saldo_composicao || []).map(x => `${fcSub[x.sub] || fcEsc(x.sub)} <b style="color:${Number(x.valor) < 0 ? '#B42318' : 'inherit'}">${fcBrl(x.valor)}</b>`).join(' · ');
-    // 13/11 (Eric: "precisa mostrar em destaque o quanto tem Livre e embaixo detalhar"): LIVRE = reserva livre; embaixo, do saldo na conta
-    // até o livre — água e luz guardadas para as contas, IPTU adiantado (volta com os boletos dos quartos)
-    const fcV = k => Number(((r.saldo_composicao || []).find(x => x.sub === k) || {}).valor || 0);
-    // 13/11 (Eric): cada valor com o próprio sinal (saldo positivo positivo, negativo negativo) e negativo em vermelho
-    const fcLin = (rot, v) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:2px 0"><span style="color:var(--muted)">${rot}</span><b style="color:${Number(v) < 0 ? '#B42318' : 'inherit'}">${fcBrl(v)}</b></div>`;
-    const fcLivre = (r.saldo_composicao || []).length
-      ? `<div class="r">Livre</div><div class="v" style="font-size:24px;color:${fcV('reserva') < 0 ? '#B42318' : '#047857'}">${fcBrl(fcV('reserva'))}</div>
+    // 13/11 (Eric: "precisa mostrar em destaque o quanto tem Livre e embaixo detalhar"): LIVRE em destaque e, embaixo, do saldo na conta até ele.
+    // 18/11 (Eric: "não bate" — livre R$ 1.426,26 com R$ 577,71 na conta): caixinha NEGATIVA (água/IPTU que o fundo já pagou a mais do que
+    // recebeu) NÃO soma no livre — é adiantamento que só volta com os boletos dos quartos e vai à parte. Livre = saldo − só o que está guardado.
+    const fcLin = (rot, v, cor) => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:2px 0"><span style="color:var(--muted)">${rot}</span><b style="color:${cor || (Number(v) < 0 ? '#B42318' : 'inherit')}">${fcBrl(v)}</b></div>`;
+    const fl = fcLivreDe(r), fcRot = { agua: 'água', luz: 'luz', iptu: 'IPTU' };
+    const fcLivre = fl
+      ? `<div class="r">Livre</div><div class="v" style="font-size:24px;color:${fl.livre < 0 ? '#B42318' : '#047857'}">${fcBrl(fl.livre)}</div>
          <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:6px">
-           ${fcLin('Saldo na conta', r.saldo_atual)}
-           ${fcLin('Guardado para a conta de água', fcV('agua'))}
-           ${fcLin('Guardado para a conta de luz', fcV('luz'))}
-           ${fcLin(fcV('iptu') < 0 ? 'IPTU (adiantado — volta com os boletos dos quartos)' : 'Guardado para o IPTU', fcV('iptu'))}
-           <div style="border-top:1px solid var(--border);margin-top:3px;padding-top:3px">${fcLin('Livre = saldo na conta − água − luz − IPTU', fcV('reserva'))}</div>
+           ${fcLin('Saldo na conta', fl.saldo)}
+           ${fl.guardado_det.map(x => fcLin('− Guardado para a conta de ' + fcRot[x.sub], x.valor, 'inherit')).join('') || fcLin('− Guardado para as contas', 0, 'inherit')}
+           <div style="border-top:1px solid var(--border);margin-top:3px;padding-top:3px">${fcLin('<b style="color:var(--text)">Livre = saldo na conta − guardado</b>', fl.livre)}</div>
+           ${fl.livre < 0 ? `<div style="font-size:11.5px;color:#B42318;margin-top:2px">A conta ainda não cobre o que está guardado: o fundo adiantou água/IPTU e esse dinheiro volta com os boletos.</div>` : ''}
+           ${fl.adiantado_det.length ? `<div style="border-top:1px dashed var(--border);margin-top:6px;padding-top:4px;font-size:11.5px;color:var(--muted)">Adiantado pelo fundo (volta com os boletos dos quartos, não entra no livre)</div>`
+             + fl.adiantado_det.map(x => fcLin(fcRot[x.sub] === 'IPTU' ? 'IPTU' : 'Conta de ' + fcRot[x.sub], x.valor, '#B54708')).join('') : ''}
          </div>`
       : `<div class="r">Saldo atual</div><div class="v">${fcBrl(r.saldo_atual)}</div>`;
     if (!r.mes_passado) h += `<div class="fc-sal2"><div>${fcLivre}</div>
