@@ -2978,7 +2978,7 @@
     const lista = (dmDados.itens || []).filter(l => !doc || l.locador_doc === doc).sort((a, b) => String(a.locador).localeCompare(String(b.locador)) || String(a.imovel_codigo).localeCompare(String(b.imovel_codigo)));
     const num = v => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const dig = v => String(v || '').replace(/\D/g, '');
-    const ADM = { cnpj: '17642438000176', nome: 'TORRES CONSULTORIA IMOBILIARIA E CORRETORA DE SEGUROS LTDA', endereco: 'Avenida Paulista, 1374, 12º Andar, São Paulo-SP, CEP 01310-916' };
+    const ADM = { cnpj: '17642438000176', nome: 'FLOW INTERMEDIACAO E ADMINISTRACAO DE NEGOCIOS LTDA', endereco: 'Avenida das Nações Unidas, 12901, Sala 2402, Bloco A, Edifício Norte, Brooklin Paulista, São Paulo-SP, CEP 04578-910' };  // 7ª alteração (Receita 17/11/2026, #495)
     const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
     const W = pdf.internal.pageSize.getWidth(), M = 40, CW = W - 2 * M;
     const txt = (s, x, y, o = {}) => { pdf.setFont('helvetica', o.b ? 'bold' : 'normal'); pdf.setFontSize(o.s || 9); pdf.setTextColor(20, 20, 20); pdf.text(String(s ?? ''), x, y, o.dir ? { align: 'right' } : o.centro ? { align: 'center' } : undefined); };
