@@ -1689,6 +1689,17 @@
       '<div class="rb-det-val ' + (cls || '') + '">' + (valor || '—') + '</div></div>';
   }
 
+  // Eric 26/11: nota/comprovante opcional do formulário. O n8n devolve link assinado de 1 h (Worker /doc/); só esse domínio vira link.
+  function rbNota(r) {
+    const u = String(r.nota_url || '');
+    if (u.startsWith('https://flowimoveis.imb.br/doc/'))
+      return rbCampo('Nota ou comprovante', '<a href="' + esc(u) + '" target="_blank" rel="noopener">📎 Ver nota</a>' +
+        (r.nota_nome ? ' <span style="color:var(--muted);font-size:12px">' + esc(r.nota_nome) + '</span>' : '') +
+        '<div style="color:var(--muted);font-size:11px;margin-top:2px">O link vale 1 hora; se expirar, atualize a lista.</div>', '', true);
+    if (r.nota_erro) return rbCampo('Nota ou comprovante', 'Tem nota, mas não consegui gerar o link agora. Atualize a lista.', '', true);
+    return '';
+  }
+
   function rbCopiar(btn, txt) {
     navigator.clipboard.writeText(txt).then(() => {
       btn.classList.add('ok'); btn.textContent = '✓ Copiado';
@@ -1720,6 +1731,7 @@
       '<div class="rb-det-item full"><div class="rb-det-label">Chave PIX</div>' + pixHtml + '</div>' +
       rbCampo('E-mail do solicitante', esc(r.email), '', true) +
       rbCampo('Descrição', esc(r.descricao), 'desc', true) +
+      rbNota(r) +
       (r.pago_obs ? rbCampo('Observação do pagamento', esc(r.pago_obs), 'desc', true) : '');
 
     const btn = document.getElementById('rbDetAcao');
@@ -1842,9 +1854,10 @@
   function rbLinha(r, grupo) {
     const desc = r.descricao
       ? '<div class="rb-desc" title="' + esc(r.descricao) + '">' + esc(r.descricao) + '</div>' : '';
+    const clipe = (r.nota_url || r.nota_erro) ? ' <span title="Tem nota/comprovante">📎</span>' : '';
     const primeira = grupo === 'nome'
-      ? esc(r.descricao || r.tipo_despesa || '—')
-      : esc(r.nome||'—') + desc;
+      ? esc(r.descricao || r.tipo_despesa || '—') + clipe
+      : esc(r.nome||'—') + clipe + desc;
     return '<tr data-id="' + r.id + '" onclick="rbDetalhe(\'' + r.id + '\')" title="Ver a solicitação completa">' +
       '<td class="td-nome"' + (grupo ? ' style="padding-left:28px"' : '') + '>' + primeira + '</td>' +
       '<td style="color:var(--muted);font-size:12px">' + esc(r.tipo_despesa||'—') + '</td>' +
