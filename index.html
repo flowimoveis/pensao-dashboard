@@ -351,6 +351,8 @@
   .rt-tipo { min-width: 150px; font-size: 13px; }
   .rt-tipo small { display: block; color: var(--muted); font-size: 11px; font-weight: 300; }
   .rt-campo { display: flex; flex-direction: column; gap: 2px; }
+  .rt-iptu-info { font-size: 12.5px; color: var(--text); flex: 1; min-width: 200px; }
+  .rt-iptu.sem .rt-iptu-info, .rt-iptu.sem .rt-tipo { color: var(--muted); }
   .rt-campo label { font-size: 9.5px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
   .rt-campo input { width: 112px; padding: 6px 8px; border: 1px solid var(--gray-3); border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 13px; }
   .rt-campo input.vazio { border-color: var(--red); background: var(--red-lt); }
@@ -2136,6 +2138,17 @@
       document.getElementById('rtContas').innerHTML = '<div style="padding:24px;text-align:center;color:var(--red);font-size:13px">⚠️ Não foi possível carregar as contas: ' + esc(e.message) + '</div>';
     }
   }
+  function rtLinhaIptu(i, vr) {
+    const sit = i.iptu_situacao || (i.valor != null ? 'ok' : 'aguardando');
+    let txt;
+    if (sit === 'ok') txt = '<b>R$ ' + fmtN(Number(i.valor) + Number(i.juros_multa || 0)) + '</b>' + (i.vencimento ? ' · vence ' + String(i.vencimento).slice(8, 10) + '/' + String(i.vencimento).slice(5, 7) : '') + ' · valor da Prefeitura (automático)';
+    else if (sit === 'sem_parcela_mes') txt = 'Sem IPTU neste mês — a Prefeitura cobra de fevereiro a novembro (dezembro e janeiro não têm parcela)';
+    else if (sit === 'conferir') txt = 'Vem da Prefeitura (automático) — em conferência pela Flow' + (i.iptu_motivo ? ': ' + esc(i.iptu_motivo) : '') + '. Não precisa enviar nada.';
+    else txt = 'Vem da Prefeitura (automático) — ainda não chegou. Não precisa enviar nada.';
+    return '<div class="rt-conta rt-iptu' + (sit === 'sem_parcela_mes' ? ' sem' : '') + '" data-chave="' + rtChave(i) + '" data-imovel="' + i.imovel_id + '" data-tipo="iptu">' +
+      '<div class="rt-tipo">' + ROT.iptu + '<small>' + esc(i.identificador || '') + (i.anterior && sit !== 'sem_parcela_mes' ? ' · anterior ' + fmtN(i.anterior) : '') + '</small></div>' +
+      '<div class="rt-iptu-info">' + txt + '</div>' + (sit === 'ok' ? vr : '') + '</div>';
+  }
   function rtSub(p) {
     if (!['contas', 'rateio', 'docs'].includes(p)) p = 'rateio';
     document.querySelectorAll('#rtSubabas .suba').forEach(b => b.classList.toggle('ativa', b.dataset.p === p));
@@ -2156,6 +2169,8 @@
         const pct = (i.valor / i.anterior - 1) * 100;
         vr = '<span class="rt-var ' + (Math.abs(pct) >= 30 ? 'alta' : 'ok') + '" title="contra o mês anterior">' + (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%</span>';
       }
+      // Eric 26/11: "o IPTU pegamos pela API" — linha só de leitura (valor da Prefeitura), sem PDF e sem campo; dez/jan não têm parcela
+      if (i.tipo === 'iptu') { h += rtLinhaIptu(i, vr); return; }
       // Eric 13/10: sem PDF não se digita valor — o PDF traz o valor (e o PIX); digitar só corrige o que foi lido
       const semPdf = !i.tem_pdf;
       const dis = (fechado || semPdf) ? ' disabled' : '';
@@ -2173,15 +2188,18 @@
     document.getElementById('rtBtnContas').style.display = fechado ? 'none' : '';
 
     const p = rtRateio.pendencias, pend = document.getElementById('rtPend');
-    abaBadge('abaNContas', p.contas_faltando.length);
-    abaBadge('rtSubNContas', p.contas_faltando.length);
-    const np = p.pessoas_faltando.length, nc = p.contas_faltando.length;
+    // Eric 26/11: IPTU vem da Prefeitura — nunca é tarefa de quem usa o portal (não conta no badge nem pede PDF)
+    const cfEnv = p.contas_faltando.filter(c => c.tipo !== 'iptu'), cfIptu = p.contas_faltando.filter(c => c.tipo === 'iptu');
+    abaBadge('abaNContas', cfEnv.length);
+    abaBadge('rtSubNContas', cfEnv.length);
+    const np = p.pessoas_faltando.length, nc = cfEnv.length, ni = cfIptu.length;
     pend.style.display = 'block';
-    if (np || nc) {
+    if (np || nc || ni) {
       pend.className = 'pp-aviso falta rt-pend';
-      pend.innerHTML = '⚠️ Para fechar o rateio falta: ' +
-        (nc ? '<b>' + nc + (nc === 1 ? ' conta' : ' contas') + ' sem PDF</b> (' + p.contas_faltando.map(c => esc(c.imovel + ' ' + (ROT[c.tipo] || c.tipo).replace(/^\S+ /, '') + ' ' + (c.identificador || '') + (c.motivo === 'sem PDF' ? ' — falta o PDF' : ''))).join(', ') + ')' : '') +
-        (nc && np ? ' e ' : '') + (np ? '<b>' + np + (np === 1 ? ' quarto' : ' quartos') + ' sem número de pessoas</b>' : '') + '.';
+      pend.innerHTML = (nc || np ? '⚠️ Para fechar o rateio falta: ' : '⚠️ O rateio fecha quando o IPTU chegar.') +
+        (nc ? '<b>' + nc + (nc === 1 ? ' conta' : ' contas') + ' sem PDF</b> (' + cfEnv.map(c => esc(c.imovel + ' ' + (ROT[c.tipo] || c.tipo).replace(/^\S+ /, '') + ' ' + (c.identificador || '') + (c.motivo === 'sem PDF' ? ' — falta o PDF' : ''))).join(', ') + ')' : '') +
+        (nc && np ? ' e ' : '') + (np ? '<b>' + np + (np === 1 ? ' quarto' : ' quartos') + ' sem número de pessoas</b>' : '') + (nc || np ? '.' : '') +
+        (ni ? ' <span style="color:var(--muted)">IPTU do ' + esc(cfIptu.map(c => c.imovel).join(', ')) + ' ainda não veio da Prefeitura (automático, a Flow acompanha — não precisa enviar).</span>' : '');
     } else {
       pend.className = 'pp-aviso ok rt-pend';
       pend.textContent = fechado ? '✓ Rateio fechado. Os boletos do mês são emitidos no Atlas (Gestão de Imóveis → Pensão) com estes valores.' : '✓ Tudo preenchido. Confira os valores abaixo e feche o rateio — depois os boletos são emitidos no Atlas.';
