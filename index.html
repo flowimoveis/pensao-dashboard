@@ -2205,7 +2205,7 @@
       pend.textContent = fechado ? '✓ Rateio fechado. Os boletos do mês são emitidos no Atlas (Gestão de Imóveis → Pensão) com estes valores.' : '✓ Tudo preenchido. Confira os valores abaixo e feche o rateio — depois os boletos são emitidos no Atlas.';
     }
     document.getElementById('rtBtnFechar').style.display = fechado ? 'none' : '';
-    document.getElementById('rtBtnFechar').disabled = !!(np || nc);
+    document.getElementById('rtBtnFechar').disabled = !!(np || nc || ni);
     document.getElementById('rtBtnReabrir').style.display = fechado ? '' : 'none';
 
     const res = document.getElementById('rtResumo');
