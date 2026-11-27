@@ -2868,7 +2868,7 @@
         if (erro) return cpCard(esc(f.nome), `<div style="color:var(--red);font-size:13px">${esc(erro)}</div>`, 'fechamentos');
         const neg = x => Number(x) < 0 ? 'var(--red)' : '';
         return cpCard(esc(f.nome),
-          `<div class="metric-value" style="color:${neg(r.saldo_projetado) || 'var(--text)'}">${fmtBRL(r.saldo_projetado)}</div><div class="metric-sub" style="margin-bottom:8px">saldo projetado de ${esc(fcMes(r.competencia))}${r.boletos_previsao ? ` · contando ${r.projetado_boletos || 0} boleto(s) de bons pagadores · em risco ${(r.em_risco || {}).boletos || 0} (${fmtBRL((r.em_risco || {}).valor_fundo)}) · se todos pagarem ${fmtBRL(r.saldo_projetado_todos_pagam)}` : ''}</div>` +
+          `<div class="metric-value" style="color:${neg(r.saldo_projetado) || 'var(--text)'}">${fmtBRL(r.saldo_projetado)}</div><div class="metric-sub" style="margin-bottom:8px">saldo projetado de ${esc(fcMes(r.competencia))}${r.boletos_previsao ? ` · contando ${r.projetado_boletos || 0} boleto(s) de bons pagadores · em risco ${(r.em_risco || {}).a_vencer_boletos || 0} a vencer (${fmtBRL((r.em_risco || {}).a_vencer_valor_fundo)}) · se todos pagarem ${fmtBRL(r.saldo_projetado_todos_pagam)} · vencidos sem pagamento ${(r.em_risco || {}).vencidos_boletos || 0} (${fmtBRL((r.em_risco || {}).vencidos_valor_fundo)}), fora` : ''}</div>` +
           cpLinha('Saldo atual', fmtBRL(r.saldo_atual), neg(r.saldo_atual)) +
           // 23/11 (Eric): o livre da Capa é o mesmo de Fechamentos — Saldo Reserva + Saldo das contas de consumo (só quando negativo)
           ((fl => fl ? cpLinha('Saldo Reserva', fmtBRL(fl.reserva), neg(fl.reserva)) +
@@ -3321,15 +3321,18 @@ function fcPreviaHtml(r, fundo) {
     // A taxa de inadimplência do fundo aparece só como informação (fora da conta).
     const fcBp = r.boletos_previsao, fcIn = r.inadimplencia, fcTodos = r.saldo_projetado_todos_pagam != null ? r.saldo_projetado_todos_pagam : r.saldo_projetado;
     const fcQuarto = c => { const m = String(c || '').match(/^(\d{3})-(.+)$/); return m ? `Pensão ${m[1]} quarto ${m[2]}` : String(c || ''); };
-    const fcRisco = (fcBp || []).filter(b => !b.entra), fcRe = r.em_risco || {};
+    // 27/11 (Eric, 3ª): 'Se todos pagarem' = só os boletos A VENCER; vencidos sem pagamento numa linha própria, fora do projetado e do 'se todos pagarem'
+    const fcRisco = (fcBp || []).filter(b => !b.entra && !b.vencido), fcVenc = (fcBp || []).filter(b => b.vencido), fcRe = r.em_risco || {};
+    const fcNr = fcRe.a_vencer_boletos != null ? fcRe.a_vencer_boletos : fcRisco.length, fcNv = fcRe.vencidos_boletos != null ? fcRe.vencidos_boletos : fcVenc.length;
     const fcNb = r.projetado_boletos || 0;
     if (!r.mes_passado) h += `<div class="fc-sal2"><div>${fcLivre}</div>
       <div><div class="r">Saldo projetado · ${fcEsc(fcMes(r.competencia))}</div><div class="v" style="color:${Number(r.saldo_projetado) < 0 ? '#B42318' : 'inherit'}">${fcBrl(r.saldo_projetado)}</div>
         ${fcBp ? `<div style="font-size:12.5px;color:var(--muted);margin-top:2px">contando ${fcNb} boleto${fcNb === 1 ? '' : 's'} de bons pagadores${r.projetado_sem_historico ? ` (${r.projetado_sem_historico} sem histórico)` : ''}</div>
-        <div style="font-size:12.5px;color:var(--muted);margin-top:4px">Se todos pagarem: <b style="color:${Number(fcTodos) < 0 ? '#B42318' : 'var(--text)'}">${fcBrl(fcTodos)}</b></div>` : ''}</div></div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:4px">Se todos pagarem (boletos a vencer): <b style="color:${Number(fcTodos) < 0 ? '#B42318' : 'var(--text)'}">${fcBrl(fcTodos)}</b></div>` : ''}</div></div>
       ${fcBp ? `<div class="fc-form"><b>Projetado: ${fcBrl(r.saldo_projetado)}</b> (contando ${fcNb} boleto${fcNb === 1 ? '' : 's'} de bons pagadores${r.projetado_sem_historico ? `, ${r.projetado_sem_historico} sem histórico` : ''})
-        · <b style="color:${fcRisco.length ? '#B54708' : 'inherit'}">Em risco: ${fcRe.boletos || 0} boleto${fcRe.boletos === 1 ? '' : 's'}, ${fcBrl(fcRe.valor_fundo)}</b>${fcRisco.length ? ' — ' + fcRisco.map(b => `${fcEsc(b.locatario)} (${fcEsc(fcQuarto(b.contrato))}${b.motivo ? ' · ' + fcEsc(b.motivo) : ''})`).join(', ') : ''}
-        · <b>Se todos pagarem: ${fcBrl(fcTodos)}</b>.<br>
+        <br><b style="color:${fcNr ? '#B54708' : 'inherit'}">Em risco (a vencer, histórico com atraso): ${fcNr} boleto${fcNr === 1 ? '' : 's'}, ${fcBrl(fcRe.a_vencer_valor_fundo != null ? fcRe.a_vencer_valor_fundo : 0)}</b>${fcRisco.length ? ' — ' + fcRisco.map(b => `${fcEsc(b.locatario)} (${fcEsc(fcQuarto(b.contrato))}${b.motivo ? ' · ' + fcEsc(b.motivo) : ''})`).join(', ') : ''}
+        <br><b>Se todos pagarem: ${fcBrl(fcTodos)}</b> (todos os boletos a vencer do mês).
+        <br><b style="color:${fcNv ? '#B42318' : 'inherit'}">Vencidos sem pagamento: ${fcNv} boleto${fcNv === 1 ? '' : 's'}, ${fcBrl(fcRe.vencidos_valor_fundo != null ? fcRe.vencidos_valor_fundo : 0)} — fora do projetado e do "se todos pagarem"</b>${fcVenc.length ? ' — ' + fcVenc.map(b => `${fcEsc(b.locatario)} (${fcEsc(fcQuarto(b.contrato))} · ${fcEsc(b.motivo || '')})`).join(', ') : ''}.<br>
         Conta: saldo atual ${fcBrl(r.saldo_atual)} + a receber dos bons pagadores ${fcBrl(r.a_receber_projetado)} − contas a pagar ${fcBrl(r.contas_a_pagar_projetado)} (inclui ${fcBrl(r.contas_estimadas || 0)} de contas ESTIMADAS pela última fatura, que somem quando a fatura real chega, e a provisão da parceira só desses boletos, ${fcBrl(r.parceira_provisao_projetada || 0)}).
         Bom pagador = pagou dentro do mês em todos os últimos 6 meses fechados e o boleto ainda não venceu. Valores em risco = parte do fundo. ${fcIn ? `Inadimplência histórica do fundo (só informação): ${String(fcIn.pct).replace('.', ',')}% — ${fcIn.boletos_abertos} de ${fcIn.boletos} boletos não pagos até o fim do mês em ${fcIn.meses} meses.` : ''}</div>`
       : `<div class="fc-form">Projetado = saldo atual ${fcBrl(r.saldo_atual)} + a receber do fundo nos boletos do mês em aberto ${fcBrl(r.a_receber)} − contas a pagar ${fcBrl(r.contas_a_pagar)} (inclui ${fcBrl(r.contas_estimadas || 0)} de contas ESTIMADAS pela última fatura, que somem quando a fatura real chega, e ${fcBrl(r.parceira_provisao || 0)} de provisão da parceira).</div>`}`;
@@ -3356,7 +3359,7 @@ function fcPreviaHtml(r, fundo) {
       const hoje = Math.round((Number(r.saldo_atual) - Number(r.contas_a_pagar)) * 100) / 100, proj = Number(r.saldo_projetado);
       h += '<div class="fc-t">Distribuição aos donos (dia 30) · estimativa</div><div class="fc-2col"><div>'
         + L('<b>Hoje</b>', hoje, 'f') + `<div style="font-size:11.5px;color:var(--muted);margin:0 0 4px">saldo atual − falta pagar</div>` + linhas(hoje)
-        + '</div><div>' + L('<b>Fim do mês (projetado)</b>', proj, 'f') + `<div style="font-size:11.5px;color:var(--muted);margin:0 0 4px">${r.boletos_previsao ? `contando só os boletos de bons pagadores (${r.projetado_boletos || 0}); em risco ${(r.em_risco || {}).boletos || 0}` : 'se os boletos em aberto forem pagos'}</div>` + linhas(proj)
+        + '</div><div>' + L('<b>Fim do mês (projetado)</b>', proj, 'f') + `<div style="font-size:11.5px;color:var(--muted);margin:0 0 4px">${r.boletos_previsao ? `contando só os boletos de bons pagadores (${r.projetado_boletos || 0}); em risco ${(r.em_risco || {}).a_vencer_boletos || 0} a vencer · ${(r.em_risco || {}).vencidos_boletos || 0} vencido(s) fora` : 'se os boletos em aberto forem pagos'}</div>` + linhas(proj)
         + '</div></div><div style="font-size:11.5px;color:var(--muted);margin-top:4px">O valor final sai no fechamento do dia 30, depois da conciliação e da aprovação da prévia.</div>';
     }
     h += '<div class="fc-t">Boletos do mês</div>' + L('Recebido', r.recebido, 'i')
